@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import 'leaflet/dist/leaflet.css';
 import ServiceWorkerRegister from '@/components/service-worker-register';
 import ConnectionBadge from '@/components/connection-badge';
+import SiteNavigation from '@/components/site-navigation';
 
 export const metadata: Metadata = {
   title: 'Innova Emergencias',
@@ -25,12 +26,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <span className="brand-mark">IE</span>
             <span><b>Innova Emergencias</b><small>Canalización ciudadana</small></span>
           </Link>
-          <nav className="topnav" aria-label="Navegación principal">
-            <Link href="/mapa">Mapa</Link>
-            <Link className="nav-emergency" href="/reportar">Reportar emergencia</Link>
-            <Link href="/acceso">Acceso institucional</Link>
-            <Link href="/login">Ingresar</Link>
-          </nav>
+          <SiteNavigation />
           <ConnectionBadge />
         </header>
         <main>{children}</main>
