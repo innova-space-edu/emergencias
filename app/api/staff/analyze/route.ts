@@ -1,8 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiStaff } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase/server';
-import { classifyEmergency } from '@/lib/ai';
+import { classifyEmergency, type AiImageInput } from '@/lib/ai';
 export const runtime='nodejs';
+
+async function loadPrivateImages(s:Awaited<ReturnType<typeof getServerSupabase>>,incidentId:string):Promise<AiImageInput[]>{
+  const {data:evidence}=await s.from('evidence').select('storage_path,mime_type,bytes').eq('incident_id',incidentId).eq('media_type','image').order('created_at',{ascending:false}).limit(3);
+  const images:AiImageInput[]=[];
+  for(const item of evidence||[]){
+    if(!item.storage_path||!String(item.mime_type||'').startsWith('image/'))continue;
+    if(item.bytes && Number(item.bytes)>5_000_000)continue;
+    try{
+      const {data}=await s.storage.from('emergency-evidence').createSignedUrl(item.storage_path,90);
+      if(!data?.signedUrl)continue;
+      const response=await fetch(data.signedUrl,{cache:'no-store'});
+      if(!response.ok)continue;
+      const buffer=Buffer.from(await response.arrayBuffer());
+      if(buffer.byteLength>5_000_000)continue;
+      images.push({mimeType:item.mime_type||'image/jpeg',base64:buffer.toString('base64')});
+    }catch{}
+  }
+  return images;
+}
+
 export async function POST(req:NextRequest){
   const staff=await getApiStaff();if(!staff)return NextResponse.json({error:'No autorizado'},{status:401});
   try{
@@ -11,10 +31,11 @@ export async function POST(req:NextRequest){
     const {data:reports}=await s.from('reports').select('danger_fire,danger_injured,danger_trapped,danger_electric,road_blocked,description').eq('incident_id',incidentId).order('received_at',{ascending:false}).limit(10);
     const flags=new Set<string>();for(const r of reports||[]){if(r.danger_fire)flags.add('fuego/humo');if(r.danger_injured)flags.add('personas heridas');if(r.danger_trapped)flags.add('personas atrapadas');if(r.danger_electric)flags.add('peligro eléctrico');if(r.road_blocked)flags.add('vía bloqueada')}
     const description=[incident.description_private,...(reports||[]).map((r:any)=>r.description)].filter(Boolean).join('\n').slice(0,8000);
-    const ai=await classifyEmergency({category:incident.category,description,dangerFlags:[...flags]});if(!ai)return NextResponse.json({error:'Gemini no está configurado en Vercel'},{status:503});
+    const images=await loadPrivateImages(s,incidentId);
+    const ai=await classifyEmergency({category:incident.category,description,dangerFlags:[...flags],images});if(!ai)return NextResponse.json({error:'Gemini no está configurado o no respondió'},{status:503});
     const patch={ai_category:ai.category,ai_severity:Math.max(1,Math.min(5,Number(ai.severity)||1)),ai_summary:`${ai.summary}${ai.recommendedOrganizations?.length?` Organismos sugeridos: ${ai.recommendedOrganizations.join(', ')}.`:''}`,ai_confidence:Math.max(0,Math.min(1,Number(ai.confidence)||0)),ai_processed_at:new Date().toISOString()};
     const {error}=await s.from('incidents').update(patch).eq('id',incidentId);if(error)throw error;
-    try{await s.from('audit_log').insert({actor_user_id:staff.user.id,actor_role:staff.profile.role,action:'ai_assessment_requested',entity_type:'incident',entity_id:incidentId,metadata:{model:process.env.GEMINI_MODEL||'gemini-3.6-flash'}})}catch{}
-    return NextResponse.json({ok:true,assessment:patch});
+    try{await s.from('audit_log').insert({actor_user_id:staff.user.id,actor_role:staff.profile.role,action:'ai_assessment_requested',entity_type:'incident',entity_id:incidentId,metadata:{model:process.env.GEMINI_MODEL||'gemini-3.6-flash',images_analyzed:images.length}})}catch{}
+    return NextResponse.json({ok:true,assessment:patch,imagesAnalyzed:images.length});
   }catch(error){console.error(error);return NextResponse.json({error:'No fue posible analizar el incidente'},{status:500})}
 }
