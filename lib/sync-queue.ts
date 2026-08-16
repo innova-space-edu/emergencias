@@ -2,61 +2,103 @@
 import { deleteOfflineReport, getOfflineReports, updateOfflineReport } from '@/lib/offline-db';
 import type { OfflineReport } from '@/lib/types';
 
+type SyncError = Error & { serverAccepted?: boolean; publicCode?: string };
+
+function reportBody(report: OfflineReport) {
+  return JSON.stringify({
+    id:report.id, secret:report.secret, category:report.category, description:report.description,
+    latitude:report.latitude, longitude:report.longitude, accuracy:report.accuracy,
+    capturedAt:report.capturedAt, occurredAt:report.occurredAt,
+    region:report.region, commune:report.commune, locality:report.locality, addressApprox:report.addressApprox,
+    dangerFire:report.dangerFire, dangerInjured:report.dangerInjured, dangerTrapped:report.dangerTrapped,
+    dangerElectric:report.dangerElectric, roadBlocked:report.roadBlocked, createdOffline:report.createdOffline,
+    syncAttempts:report.attempts,
+  });
+}
+
+async function wait(ms:number){return new Promise(resolve=>setTimeout(resolve,ms))}
+
+async function createOrConfirm(report: OfflineReport) {
+  let lastError: Error | null = null;
+  for (let attempt=0; attempt<2; attempt++) {
+    try {
+      const response = await fetch('/api/reports', {
+        method:'POST',
+        headers:{'content-type':'application/json','cache-control':'no-cache'},
+        body:reportBody(report),
+        cache:'no-store',
+      });
+      const text = await response.text();
+      let payload:any = {};
+      try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
+      if (response.ok) return payload;
+      lastError = new Error(payload.error || `No se pudo registrar la emergencia (${response.status})`);
+      if (response.status < 500 && response.status !== 408 && response.status !== 429) break;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('No se pudo conectar con el receptor de emergencias');
+    }
+    if (attempt===0) await wait(700);
+  }
+  throw lastError || new Error('No se pudo confirmar la recepción');
+}
+
 export async function syncOneReport(report: OfflineReport) {
-  report.state = 'syncing'; report.attempts += 1; report.lastError = undefined;
+  report.state = report.serverAccepted ? 'accepted' : 'syncing';
+  report.attempts = (report.attempts || 0) + 1;
+  report.lastError = undefined;
   await updateOfflineReport(report);
-  let serverAccepted = false;
+
   try {
-    const createRes = await fetch('/api/reports', {
-      method:'POST', headers:{'content-type':'application/json'},
-      body: JSON.stringify({
-        id:report.id, secret:report.secret, category:report.category, description:report.description,
-        latitude:report.latitude, longitude:report.longitude, accuracy:report.accuracy,
-        capturedAt:report.capturedAt, occurredAt:report.occurredAt,
-        region:report.region, commune:report.commune, locality:report.locality, addressApprox:report.addressApprox,
-        dangerFire:report.dangerFire, dangerInjured:report.dangerInjured, dangerTrapped:report.dangerTrapped,
-        dangerElectric:report.dangerElectric, roadBlocked:report.roadBlocked, createdOffline:report.createdOffline
-      })
-    });
-    const createPayload = await createRes.json().catch(()=>({}));
-    if (!createRes.ok) throw new Error(createPayload.error || 'No se pudo registrar la emergencia');
-    serverAccepted = true;
+    if (!report.serverAccepted) {
+      const payload = await createOrConfirm(report);
+      report.serverAccepted = true;
+      report.publicCode = payload.publicCode || report.publicCode;
+      report.incidentId = payload.incidentId || report.incidentId;
+      report.acceptedAt = report.acceptedAt || new Date().toISOString();
+      report.state = 'accepted';
+      report.lastError = undefined;
+      // Esta escritura ocurre ANTES de subir evidencia. Desde aquí el incidente ya está recibido.
+      await updateOfflineReport(report);
+    }
 
     for (const evidence of report.evidence || []) {
       if (evidence.uploaded) continue;
       const signRes = await fetch(`/api/reports/${report.id}/evidence-url`, {
-        method:'POST', headers:{'content-type':'application/json'},
+        method:'POST', headers:{'content-type':'application/json','cache-control':'no-cache'}, cache:'no-store',
         body: JSON.stringify({ secret:report.secret, fileName:evidence.name, mimeType:evidence.type, bytes:evidence.size, mediaType:evidence.mediaType, durationSeconds:evidence.durationSeconds })
       });
-      if (!signRes.ok) throw new Error((await signRes.json().catch(()=>({}))).error || 'No se pudo preparar la evidencia');
-      const signed = await signRes.json();
-      if (!signed?.signedUrl || !signed?.path) throw new Error('Supabase no devolvió una URL de carga válida');
+      const signPayload = await signRes.json().catch(()=>({}));
+      if (!signRes.ok) throw new Error(signPayload.error || 'No se pudo preparar la evidencia');
+      if (!signPayload?.signedUrl || !signPayload?.path) throw new Error('No se recibió una URL válida para la evidencia');
 
-      const uploadRes = await fetch(signed.signedUrl, {
-        method:'PUT',
-        body:evidence.blob,
-        headers:{'Content-Type':evidence.type || 'application/octet-stream','x-upsert':'false'}
+      const uploadRes = await fetch(signPayload.signedUrl, {
+        method:'PUT', body:evidence.blob,
+        headers:{'Content-Type':evidence.type || 'application/octet-stream','x-upsert':'false'},
       });
-      if (!uploadRes.ok) throw new Error(`Carga de evidencia falló (${uploadRes.status})`);
+      if (!uploadRes.ok) throw new Error(`La evidencia quedó pendiente de carga (${uploadRes.status})`);
 
       const confirm = await fetch(`/api/reports/${report.id}/evidence-confirm`, {
-        method:'POST', headers:{'content-type':'application/json'},
-        body: JSON.stringify({ secret:report.secret, storagePath:signed.path, mimeType:evidence.type, bytes:evidence.size, mediaType:evidence.mediaType, durationSeconds:evidence.durationSeconds })
+        method:'POST', headers:{'content-type':'application/json','cache-control':'no-cache'}, cache:'no-store',
+        body: JSON.stringify({ secret:report.secret, storagePath:signPayload.path, mimeType:evidence.type, bytes:evidence.size, mediaType:evidence.mediaType, durationSeconds:evidence.durationSeconds })
       });
-      if (!confirm.ok) throw new Error((await confirm.json().catch(()=>({}))).error || 'La evidencia se cargó pero no pudo confirmarse');
-      evidence.uploaded = true; evidence.storagePath = signed.path;
+      const confirmPayload = await confirm.json().catch(()=>({}));
+      if (!confirm.ok) throw new Error(confirmPayload.error || 'La evidencia se cargó pero falta confirmarla');
+      evidence.uploaded = true;
+      evidence.storagePath = signPayload.path;
       await updateOfflineReport(report);
     }
 
+    const result={ publicCode: report.publicCode || null, incidentId: report.incidentId || null, serverAccepted:true };
     await deleteOfflineReport(report.id);
-    return { publicCode: createPayload.publicCode || null, incidentId: createPayload.incidentId || null };
+    return result;
   } catch (error) {
-    report.state='failed';
     const message=error instanceof Error ? error.message : 'Error de sincronización';
-    report.lastError=serverAccepted ? `Reporte recibido; sincronización complementaria pendiente: ${message}` : message;
+    report.state = report.serverAccepted ? 'accepted' : 'failed';
+    report.lastError = report.serverAccepted ? `Emergencia recibida. Pendiente: ${message}` : message;
     await updateOfflineReport(report);
-    const wrapped=new Error(report.lastError);
-    (wrapped as Error & {serverAccepted?:boolean}).serverAccepted=serverAccepted;
+    const wrapped:SyncError=new Error(report.lastError);
+    wrapped.serverAccepted=Boolean(report.serverAccepted);
+    wrapped.publicCode=report.publicCode;
     throw wrapped;
   }
 }
@@ -65,13 +107,14 @@ export async function syncPendingReports() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   const reports = await getOfflineReports();
   for (const report of reports) {
-    try { await syncOneReport(report); } catch { /* permanece en cola */ }
+    try { await syncOneReport(report); } catch { /* queda persistido para el siguiente intento */ }
   }
 }
 
 export async function requestBackgroundSync() {
-  if (!('serviceWorker' in navigator)) return;
+  if (typeof navigator==='undefined' || !('serviceWorker' in navigator)) return;
   const reg = await navigator.serviceWorker.ready;
   const syncManager = (reg as ServiceWorkerRegistration & { sync?: { register:(tag:string)=>Promise<void> } }).sync;
   if (syncManager) await syncManager.register('sync-emergencies');
+  else reg.active?.postMessage('SYNC_NOW');
 }
