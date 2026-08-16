@@ -1,11 +1,11 @@
 'use client';
 import { deleteOfflineReport, getOfflineReports, updateOfflineReport } from '@/lib/offline-db';
-import { getBrowserSupabase } from '@/lib/supabase/browser';
 import type { OfflineReport } from '@/lib/types';
 
 export async function syncOneReport(report: OfflineReport) {
   report.state = 'syncing'; report.attempts += 1; report.lastError = undefined;
   await updateOfflineReport(report);
+  let serverAccepted = false;
   try {
     const createRes = await fetch('/api/reports', {
       method:'POST', headers:{'content-type':'application/json'},
@@ -20,9 +20,9 @@ export async function syncOneReport(report: OfflineReport) {
     });
     const createPayload = await createRes.json().catch(()=>({}));
     if (!createRes.ok) throw new Error(createPayload.error || 'No se pudo registrar la emergencia');
+    serverAccepted = true;
 
-    const supabase = getBrowserSupabase();
-    for (const evidence of report.evidence) {
+    for (const evidence of report.evidence || []) {
       if (evidence.uploaded) continue;
       const signRes = await fetch(`/api/reports/${report.id}/evidence-url`, {
         method:'POST', headers:{'content-type':'application/json'},
@@ -30,27 +30,34 @@ export async function syncOneReport(report: OfflineReport) {
       });
       if (!signRes.ok) throw new Error((await signRes.json().catch(()=>({}))).error || 'No se pudo preparar la evidencia');
       const signed = await signRes.json();
-      const { error: uploadError } = await supabase.storage.from('emergency-evidence').uploadToSignedUrl(
-        signed.path,
-        signed.token,
-        evidence.blob,
-        { cacheControl:'3600', contentType:evidence.type, upsert:false }
-      );
-      if (uploadError) throw new Error(`Carga de evidencia falló: ${uploadError.message}`);
+      if (!signed?.signedUrl || !signed?.path) throw new Error('Supabase no devolvió una URL de carga válida');
+
+      const uploadRes = await fetch(signed.signedUrl, {
+        method:'PUT',
+        body:evidence.blob,
+        headers:{'Content-Type':evidence.type || 'application/octet-stream','x-upsert':'false'}
+      });
+      if (!uploadRes.ok) throw new Error(`Carga de evidencia falló (${uploadRes.status})`);
+
       const confirm = await fetch(`/api/reports/${report.id}/evidence-confirm`, {
         method:'POST', headers:{'content-type':'application/json'},
         body: JSON.stringify({ secret:report.secret, storagePath:signed.path, mimeType:evidence.type, bytes:evidence.size, mediaType:evidence.mediaType, durationSeconds:evidence.durationSeconds })
       });
-      if (!confirm.ok) throw new Error('La evidencia se cargó pero no pudo confirmarse');
+      if (!confirm.ok) throw new Error((await confirm.json().catch(()=>({}))).error || 'La evidencia se cargó pero no pudo confirmarse');
       evidence.uploaded = true; evidence.storagePath = signed.path;
       await updateOfflineReport(report);
     }
+
     await deleteOfflineReport(report.id);
     return { publicCode: createPayload.publicCode || null, incidentId: createPayload.incidentId || null };
   } catch (error) {
-    report.state='failed'; report.lastError=error instanceof Error ? error.message : 'Error de sincronización';
+    report.state='failed';
+    const message=error instanceof Error ? error.message : 'Error de sincronización';
+    report.lastError=serverAccepted ? `Reporte recibido; sincronización complementaria pendiente: ${message}` : message;
     await updateOfflineReport(report);
-    throw error;
+    const wrapped=new Error(report.lastError);
+    (wrapped as Error & {serverAccepted?:boolean}).serverAccepted=serverAccepted;
+    throw wrapped;
   }
 }
 
