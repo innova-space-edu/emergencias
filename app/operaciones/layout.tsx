@@ -9,7 +9,8 @@ export default async function OperationsLayout({ children }: { children: React.R
       <aside className="ops-sidebar">
         <div className="ops-brand"><span className="brand-mark">IE</span><div><b>Centro de operaciones</b><small>{profile.organization || 'Innova Emergencias'}</small></div></div>
         <nav>
-          <Link href="/operaciones">Mapa e incidentes</Link>
+          <Link href="/operaciones">Emergencias activas</Link>
+          <Link href="/operaciones/historial">Historial general</Link>
           {profile.role === 'admin' ? <Link href="/operaciones/accesos">Solicitudes de acceso</Link> : null}
           {profile.role === 'admin' ? <Link href="/operaciones/organizaciones">Organizaciones</Link> : null}
           <Link href="/mapa">Vista pública</Link>
