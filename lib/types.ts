@@ -60,7 +60,11 @@ export type OfflineReport = {
   dangerElectric: boolean;
   roadBlocked: boolean;
   createdOffline: boolean;
-  state: 'pending'|'syncing'|'failed';
+  state: 'pending'|'syncing'|'accepted'|'failed';
+  serverAccepted?: boolean;
+  publicCode?: string;
+  incidentId?: string;
+  acceptedAt?: string;
   lastError?: string;
   attempts: number;
   evidence: EvidenceDraft[];
