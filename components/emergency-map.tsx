@@ -1,6 +1,7 @@
 'use client';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import maplibregl, { Map as MapLibreMap } from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import { STATUS_LABEL } from '@/lib/constants';
 import type { PublicIncident } from '@/lib/types';
 
