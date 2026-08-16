@@ -1,0 +1,28 @@
+create or replace function private.is_staff(required_roles public.app_role[] default array['admin'::public.app_role,'operator'::public.app_role,'authority'::public.app_role]) returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.profiles p where p.user_id=(select auth.uid()) and p.active=true and p.role=any(required_roles)); $$;
+revoke all on function private.is_staff(public.app_role[]) from public;
+grant usage on schema private to authenticated;
+grant execute on function private.is_staff(public.app_role[]) to authenticated;
+
+drop policy if exists profiles_admin_read on public.profiles; drop policy if exists profiles_admin_update on public.profiles;
+create policy profiles_admin_read on public.profiles for select to authenticated using(private.is_staff(array['admin'::public.app_role]));
+create policy profiles_admin_update on public.profiles for update to authenticated using(private.is_staff(array['admin'::public.app_role])) with check(private.is_staff(array['admin'::public.app_role]));
+drop policy if exists incidents_staff_read on public.incidents; drop policy if exists incidents_staff_update on public.incidents;
+create policy incidents_staff_read on public.incidents for select to authenticated using(private.is_staff());
+create policy incidents_staff_update on public.incidents for update to authenticated using(private.is_staff()) with check(private.is_staff());
+drop policy if exists reports_staff_read on public.reports; drop policy if exists reports_staff_update on public.reports;
+create policy reports_staff_read on public.reports for select to authenticated using(private.is_staff());
+create policy reports_staff_update on public.reports for update to authenticated using(private.is_staff()) with check(private.is_staff());
+drop policy if exists evidence_staff_read on public.evidence; create policy evidence_staff_read on public.evidence for select to authenticated using(private.is_staff());
+drop policy if exists organizations_staff_read on public.organizations; drop policy if exists organizations_admin_write on public.organizations;
+create policy organizations_staff_read on public.organizations for select to authenticated using(private.is_staff());
+create policy organizations_admin_write on public.organizations for all to authenticated using(private.is_staff(array['admin'::public.app_role])) with check(private.is_staff(array['admin'::public.app_role]));
+drop policy if exists notifications_staff_read on public.incident_notifications; drop policy if exists notifications_staff_insert on public.incident_notifications; drop policy if exists notifications_staff_update on public.incident_notifications;
+create policy notifications_staff_read on public.incident_notifications for select to authenticated using(private.is_staff());
+create policy notifications_staff_insert on public.incident_notifications for insert to authenticated with check(private.is_staff());
+create policy notifications_staff_update on public.incident_notifications for update to authenticated using(private.is_staff()) with check(private.is_staff());
+drop policy if exists access_requests_admin_read on public.access_requests; drop policy if exists access_requests_admin_update on public.access_requests;
+create policy access_requests_admin_read on public.access_requests for select to authenticated using(private.is_staff(array['admin'::public.app_role]));
+create policy access_requests_admin_update on public.access_requests for update to authenticated using(private.is_staff(array['admin'::public.app_role])) with check(private.is_staff(array['admin'::public.app_role]));
+drop policy if exists audit_staff_read on public.audit_log; create policy audit_staff_read on public.audit_log for select to authenticated using(private.is_staff());
+drop policy if exists evidence_storage_staff_read on storage.objects; create policy evidence_storage_staff_read on storage.objects for select to authenticated using(bucket_id='emergency-evidence' and private.is_staff());
+drop function if exists public.is_staff(public.app_role[]);

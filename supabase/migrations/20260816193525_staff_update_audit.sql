@@ -1,0 +1,4 @@
+create or replace function private.audit_incident_update() returns trigger language plpgsql security definer set search_path='' as $$
+declare uid uuid:=auth.uid(); r public.app_role; begin if uid is null then return new; end if; select role into r from public.profiles where user_id=uid and active=true; if r is not null then insert into public.audit_log(actor_user_id,actor_role,action,entity_type,entity_id,metadata) values(uid,r,'incident_updated','incident',new.id::text,jsonb_build_object('old_status',old.status,'new_status',new.status,'old_severity',old.severity,'new_severity',new.severity)); end if; return new; end$$;
+revoke all on function private.audit_incident_update() from public;
+create trigger trg_audit_incident_update after update on public.incidents for each row execute function private.audit_incident_update();
