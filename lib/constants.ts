@@ -18,5 +18,35 @@ export const EMERGENCY_CATEGORIES = [
 ] as const;
 
 export const STATUS_LABEL: Record<string,string> = {
-  pending_sync:'Pendiente de sincronización', received:'Recibida', reviewing:'En revisión', verified:'Verificada', critical:'Crítica', notified:'Organismos notificados', responding:'En atención', resolved:'Resuelta', discarded:'Descartada'
+  pending_sync:'Pendiente de sincronización',
+  received:'Recibida',
+  reviewing:'En revisión',
+  verified:'Verificada',
+  critical:'Crítica',
+  notified:'Organismos notificados',
+  responding:'En atención',
+  resolved:'Resuelta',
+  discarded:'Cerrada / descartada'
 };
+
+export const STATUS_COLOR: Record<string,string> = {
+  pending_sync:'#eab308',
+  received:'#eab308',
+  reviewing:'#eab308',
+  verified:'#f97316',
+  critical:'#dc2626',
+  notified:'#2563eb',
+  responding:'#7c3aed',
+  resolved:'#16a34a',
+  discarded:'#111827'
+};
+
+export const STATUS_LEGEND = [
+  ['received','Recibida / en revisión'],
+  ['verified','Verificada'],
+  ['critical','Crítica'],
+  ['notified','Notificada'],
+  ['responding','En atención'],
+  ['resolved','Resuelta'],
+  ['discarded','Cerrada / descartada']
+] as const;
