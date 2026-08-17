@@ -1,12 +1,14 @@
 type WorkerBody={mode:'report'|'staff-analyze'|'process-pending';reportId?:string;secret?:string;incidentId?:string;limit?:number};
 
-export async function callAgentWorker(body:WorkerBody){
+export async function callAgentWorker(body:WorkerBody,accessToken?:string){
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/,'');
   const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if(!url||!key)throw new Error('Supabase no configurado');
+  const headers:Record<string,string>={apikey:key,'content-type':'application/json'};
+  if(accessToken)headers.authorization=`Bearer ${accessToken}`;
   return fetch(`${url}/functions/v1/agent-worker`,{
     method:'POST',
-    headers:{apikey:key,'content-type':'application/json'},
+    headers,
     body:JSON.stringify(body),
     cache:'no-store',
     signal:AbortSignal.timeout(55000),
