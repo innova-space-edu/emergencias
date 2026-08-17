@@ -17,6 +17,7 @@ import 'leaflet/dist/leaflet.css';
 import ServiceWorkerRegister from '@/components/service-worker-register';
 import ConnectionBadge from '@/components/connection-badge';
 import SiteNavigation from '@/components/site-navigation';
+import SiteVisitorPresence from '@/components/site-visitor-presence';
 
 export const metadata: Metadata = {
   title: 'Innova Emergency',
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="es">
       <body>
         <ServiceWorkerRegister />
+        <SiteVisitorPresence />
         <header className="topbar">
           <Link className="brand" href="/" aria-label="Innova Emergency - Inicio">
             <span className="brand-mark">IE</span>
