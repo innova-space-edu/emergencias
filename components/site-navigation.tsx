@@ -23,7 +23,7 @@ export default function SiteNavigation(){
     </div>
     {open?<div className="mobile-nav-backdrop" onClick={close} aria-hidden="true"/>:null}
     <nav id="mobile-main-menu" className={`mobile-nav-panel ${open?'open':''}`} aria-label="Navegación móvil">
-      <div className="mobile-nav-head"><div><b>Innova Emergencias</b><small>Navegación</small></div><button type="button" onClick={close} aria-label="Cerrar menú">×</button></div>
+      <div className="mobile-nav-head"><div><b>Innova Emergency</b><small>Navegación</small></div><button type="button" onClick={close} aria-label="Cerrar menú">×</button></div>
       <Link href="/mapa" onClick={close}><span>Mapa de emergencias</span><small>Ver incidentes públicos en tiempo real</small></Link>
       <Link className="mobile-nav-danger" href="/reportar" onClick={close}><span>Reportar emergencia</span><small>GPS, descripción, fotografías y videos</small></Link>
       <Link href="/acceso" onClick={close}><span>Solicitar acceso institucional</span><small>Organizaciones, autoridades y operadores</small></Link>
