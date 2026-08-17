@@ -11,7 +11,7 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
   const {id}=await params;
   try{
     const s=await getServerSupabase();
-    const {data:incident}=await s.from('incidents').select('id,region,commune,locality,category').eq('id',id).single();
+    const {data:incident}=await s.from('incidents').select('id,public_code,title,category,severity,status,region,commune,locality,address_approx,latitude,longitude,public_summary').eq('id',id).single();
     if(!incident)return NextResponse.json({error:'Emergencia no encontrada'},{status:404});
     const region=incident.region||'Antofagasta',commune=incident.commune||'Antofagasta',locality=String(incident.locality||'').trim();
     let localityIds:string[]=[];
@@ -37,6 +37,6 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
     let channels:any[]=[];
     if(ids.length){const {data,error}=await s.from('organization_channels').select('id,organization_id,channel_type,label,value,direct_send,automation_enabled,is_primary,verified_at,active').eq('active',true).in('organization_id',ids).order('is_primary',{ascending:false});if(error)throw error;channels=data||[]}
     const rows=(orgs||[]).map((o:any)=>({...o,channels:channels.filter((c:any)=>c.organization_id===o.id)})).filter((o:any)=>o.channels.length||o.email||o.phone||o.website||o.radio_frequency);
-    return NextResponse.json({ok:true,scope,region,commune,locality:locality||null,organizations:rows});
+    return NextResponse.json({ok:true,scope,region,commune,locality:locality||null,incident,organizations:rows,operatorEmail:staff.user.email||staff.profile.email||null,adminEmail:process.env.ADMIN_EMAIL||process.env.EMAIL_SEND_TO||'contacto@innova-space-edu.cl'});
   }catch(error){console.error(error);return NextResponse.json({error:'No fue posible cargar los contactos territoriales'},{status:500})}
 }
