@@ -15,7 +15,7 @@ export default function HomePage() {
           </div>
           <div className="notice-card">
             <b>¿Existe peligro inmediato?</b>
-            <span>Utiliza también los canales oficiales correspondientes. Esta plataforma complementa la canalización de información; no reemplaza el despacho oficial.</span>
+            <span>Utiliza también los canales oficiales correspondientes 131 SAMU, 132 Bomberos, 133 Carabineros. Esta plataforma complementa la canalización de información; no reemplaza el despacho oficial.</span>
             <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'8px'}} aria-label="Números oficiales de emergencia en Chile">
               <a className="btn btn-danger btn-sm" href="tel:131" aria-label="Llamar al SAMU 131">131 · SAMU / Ambulancia</a>
               <a className="btn btn-danger btn-sm" href="tel:132" aria-label="Llamar a Bomberos 132">132 · Bomberos</a>
