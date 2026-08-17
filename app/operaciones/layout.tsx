@@ -25,7 +25,7 @@ export default async function OperationsLayout({ children }: { children: React.R
         <div className="ops-mobile-user"><span>{profile.full_name || profile.email}</span><div className="ops-mobile-contact"><ContactAdminButton /></div><LogoutButton /></div>
       </details>
       <aside className="ops-sidebar">
-        <div className="ops-brand"><span className="brand-mark">IE</span><div><b>Centro de operaciones</b><small>{profile.organization || 'Innova Emergency'}</small></div></div>
+        <div className="ops-brand"><div><b>Centro de operaciones</b><small>{profile.organization || 'Innova Emergency'}</small></div></div>
         <nav>{links}</nav>
         <div className="ops-user"><b>{profile.full_name || profile.email}</b><span>{profile.role}</span><ContactAdminButton /><LogoutButton /></div>
       </aside>
