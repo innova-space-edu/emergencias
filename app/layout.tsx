@@ -10,7 +10,7 @@ import ConnectionBadge from '@/components/connection-badge';
 import SiteNavigation from '@/components/site-navigation';
 
 export const metadata: Metadata = {
-  title: 'Innova Emergencias',
+  title: 'Innova Emergency',
   description: 'Plataforma ciudadana de canalización de emergencias geolocalizadas.',
   manifest: '/manifest.webmanifest',
 };
@@ -23,16 +23,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <ServiceWorkerRegister />
         <header className="topbar">
-          <Link className="brand" href="/" aria-label="Innova Emergencias - Inicio">
+          <Link className="brand" href="/" aria-label="Innova Emergency - Inicio">
             <span className="brand-mark">IE</span>
-            <span><b>Innova Emergencias</b><small>Canalización ciudadana</small></span>
+            <span><b>Innova Emergency</b><small>Canalización ciudadana</small></span>
           </Link>
           <SiteNavigation />
           <ConnectionBadge />
         </header>
         <main>{children}</main>
         <footer className="footer">
-          <span>Innova Emergencias · Innova Space Education</span>
+          <span>Innova Emergency · Innova Space Education</span>
           <span>Este sistema ayuda a canalizar información y no reemplaza los canales oficiales de emergencia.</span>
         </footer>
       </body>
