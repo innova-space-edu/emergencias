@@ -1,54 +1,81 @@
-# Innova Emergencias
+# Innova Emergency
 
 Plataforma ciudadana de canalización de emergencias geolocalizadas. **No reemplaza a los canales oficiales de emergencia.**
 
-## Estado de la primera versión
+## Estado actual
 - Next.js 16 / React 19 listo para Vercel.
-- Supabase Free conectado al proyecto `gwldnuekmwpwfnustqlu`.
+- Supabase conectado al proyecto `gwldnuekmwpwfnustqlu`.
 - Postgres + PostGIS para incidentes geolocalizados.
 - Edge Function `emergency-gateway` para ingreso anónimo y mapa público seguro.
+- Edge Function `emergency-email-broadcast` para alertas automáticas a usuarios autorizados.
 - Storage privado `emergency-evidence` para imágenes y videos.
-- PWA offline-first: IndexedDB + Service Worker + Background Sync/reintentos.
-- MapLibre + OpenFreeMap con fallback OpenStreetMap, geolocalización, búsqueda, clusters, fullscreen y panel expandible.
-- Vista pública sin acceso a evidencia.
-- Centro de operaciones para `admin`, `operator` y `authority` con evidencia privada, reportes completos, estado, auditoría y notificaciones.
-- IA Gemini 3.6 Flash opcional y solo como apoyo de clasificación, nunca como verificación o despacho autónomo.
-- Correo institucional con Nodemailer/Gmail.
-- Directorio ampliable para autoridades, empresas de servicios y radios locales.
+- PWA offline-first: IndexedDB + Service Worker + reintentos al recuperar conexión.
+- Leaflet + cartografía raster para máxima compatibilidad móvil/escritorio; MapLibre queda disponible para funciones avanzadas.
+- Vista pública limitada a incidentes recientes y sin acceso a evidencia privada.
+- Centro de operaciones para `admin`, `operator` y `authority`.
+- Dashboard exclusivo de administrador, registro paginado de reportes ciudadanos, historial, directorio territorial y auditoría de correos.
+- Agente Gemini para triage asistido, priorización, recomendación territorial y prealertas controladas; nunca certifica la veracidad ni reemplaza un despacho oficial.
+- Correo transaccional mediante **Resend API HTTP**.
 
 ## Flujo ciudadano
-1. El reporte se guarda **primero** en IndexedDB con UUID y secreto local.
-2. Si hay Internet, se sincroniza. Si se corta la señal, queda en cola.
+1. El reporte se guarda primero en IndexedDB con UUID y secreto local.
+2. Si hay Internet, se sincroniza; si se corta la señal, queda en cola.
 3. El reporte JSON llega a la Edge Function de Supabase.
-4. La evidencia recibe una URL firmada y se sube directamente a Storage, sin transportar el video por Vercel.
-5. Solo después de confirmarse la subida se elimina la copia local pendiente.
-6. Reportes de la misma categoría, cercanos en espacio/tiempo, pueden agruparse en un incidente.
+4. La evidencia recibe una URL firmada y se sube directamente a Storage.
+5. El ciudadano recibe su código `EMG-...` sin esperar al análisis IA.
+6. En segundo plano se ejecutan el agente IA y las alertas de correo internas.
+7. Reportes cercanos de una misma categoría pueden consolidarse en un incidente.
 
 ## Privacidad
-El endpoint del mapa público expone exclusivamente campos públicos del incidente y estados de canalización. `reports`, `description_private`, análisis IA, rutas de Storage y evidencias no se entregan al ciudadano.
+El mapa público expone únicamente campos sanitizados. `reports`, descripciones privadas, análisis IA, rutas de Storage, evidencia y directorio territorial son de acceso institucional.
 
 ## Administrador
-No hay registro público. Crea el usuario manualmente en Supabase **Authentication > Users**.
+No hay registro público. Crea usuarios desde **Supabase > Authentication > Users**.
 
-Si el correo creado es `contacto@innova-space-edu.cl`, el trigger lo registra automáticamente en `public.profiles` como `admin` y `active=true`. Otros usuarios creados manualmente quedan como `operator` e `active=false` hasta que el administrador cambie su perfil.
+El correo `contacto@innova-space-edu.cl` se registra automáticamente como `admin` activo. El administrador dispone de:
+- Dashboard general con totales reales.
+- Registro de todos los reportes ciudadanos, paginado.
+- Emergencias activas e historial.
+- Evidencia privada.
+- Agente IA y acciones pendientes.
+- Directorio territorial y organizaciones.
+- Solicitudes de acceso.
+- Alertas por correo y auditoría Resend.
+
+## Resend
+### Variables en Vercel
+Configurar en Production, Preview y Development cuando corresponda:
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
+EMAIL_FROM=Innova Emergency <contacto@innova-space-edu.cl>
+EMAIL_SEND_TO=contacto@innova-space-edu.cl
+ADMIN_EMAIL=contacto@innova-space-edu.cl
+```
+
+`EMAIL_FROM` debe usar un dominio verificado en Resend. Los correos enviados por un operador usan el remitente institucional verificado; el correo de la cuenta que ejecuta la acción se usa como `Reply-To`, y el administrador recibe copia cuando corresponde.
+
+### Secrets en Supabase Edge Functions
+Para que las alertas automáticas de nuevas emergencias y cambios críticos funcionen aunque el usuario no esté mirando el panel, configurar también:
+
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
+EMAIL_FROM=Innova Emergency <contacto@innova-space-edu.cl>
+ADMIN_EMAIL=contacto@innova-space-edu.cl
+INNOVA_EMERGENCY_URL=https://emergencias-4yfs.vercel.app
+```
+
+La misma API key de Resend puede utilizarse en Vercel y en Supabase. No se guarda ninguna API key en GitHub.
 
 ## Vercel
-Proyecto recomendado: `emergencias` dentro de `emorales-3065's projects`.
-
-Configuración:
 - Framework Preset: Next.js
 - Root Directory: `/`
 - Build Command: `npm run build`
-- Output Directory: **vacío / automático**
+- Output Directory: vacío / automático
 - Node.js: 22.x
 - Branch de producción: `main`
 
-Variables: ver `.env.example`. No se necesita `service_role` en Vercel: la Edge Function usa las credenciales server-side que Supabase provee internamente.
+Variables generales: ver `.env.example`. No se necesita `SUPABASE_SERVICE_ROLE_KEY` en Vercel.
 
-## GitHub
-Repositorio objetivo: `innova-space-edu/emergencias`.
-
-El repositorio debe incluir `supabase/migrations/` y `supabase/functions/emergency-gateway/` para que GitHub sea la fuente reproducible del backend además del frontend.
-
-## Nota cartográfica
-OpenFreeMap/OSM son la opción gratuita inicial. La interfaz desacopla el estilo mediante `NEXT_PUBLIC_MAP_STYLE_URL`, permitiendo cambiar proveedor o añadir PMTiles/autohospedado más adelante sin reescribir el mapa.
+## Backend reproducible
+El repositorio incluye `supabase/migrations/` y `supabase/functions/` para que GitHub sea la fuente reproducible del esquema y de las Edge Functions.
