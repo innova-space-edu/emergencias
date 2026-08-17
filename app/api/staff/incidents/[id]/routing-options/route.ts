@@ -28,8 +28,17 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
   const {id}=await params;
   try{
     const s=await getServerSupabase();
-    const {data:incident}=await s.from('incidents').select('id,public_code,title,category,ai_category,severity,status,region,commune,locality,address_approx,latitude,longitude,public_summary').eq('id',id).single();
+    const {data:incident}=await s.from('incidents').select('id,public_code,title,category,ai_category,severity,status,region,commune,locality,address_approx,latitude,longitude,public_summary,reports_count').eq('id',id).single();
     if(!incident)return NextResponse.json({error:'Emergencia no encontrada'},{status:404});
+
+    const {data:citizenReport}=await s.from('reports').select('id,category,description,region,commune,locality,address_approx,occurred_at,captured_at,danger_fire,danger_injured,danger_trapped,danger_electric,road_blocked').eq('incident_id',id).order('captured_at',{ascending:true}).limit(1).maybeSingle();
+    let evidenceCount=0;
+    if(citizenReport?.id){
+      const {count}=await s.from('evidence').select('id',{head:true,count:'exact'}).eq('report_id',citizenReport.id);
+      evidenceCount=count||0;
+    }
+    const citizenReportPayload=citizenReport?{...citizenReport,evidence_count:evidenceCount}:null;
+
     const region=incident.region||'Antofagasta',commune=incident.commune||'Antofagasta',locality=String(incident.locality||'').trim();
     const effectiveCategory=incident.ai_category||incident.category||'other';
     const kinds=CATEGORY_KINDS[effectiveCategory]||CATEGORY_KINDS.other;
@@ -62,6 +71,6 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
     if(ids.length){const {data,error}=await s.from('organization_channels').select('id,organization_id,channel_type,label,value,direct_send,automation_enabled,is_primary,verified_at,source_url,notes,active').eq('active',true).in('organization_id',ids).order('is_primary',{ascending:false});if(error)throw error;channels=data||[]}
     const rows=(orgs||[]).map((o:any)=>({...o,coverage_priority:coveragePriority.get(o.id)??100,channels:channels.filter((c:any)=>c.organization_id===o.id)})).filter((o:any)=>o.channels.length||o.email||o.phone||o.website||o.radio_frequency).sort((a:any,b:any)=>(kinds.indexOf(a.kind)-kinds.indexOf(b.kind))||(a.coverage_priority-b.coverage_priority)||a.name.localeCompare(b.name,'es'));
     const {data:emailHistory}=await s.from('incident_notifications').select('id,organization_name,destination,status,provider_message_id,sent_at,created_at,failure_reason,subject,message_text,cc_recipients').eq('incident_id',id).eq('channel','email').order('created_at',{ascending:false}).limit(10);
-    return NextResponse.json({ok:true,scope,region,commune,locality:locality||null,effectiveCategory,incident,organizations:rows,operatorEmail:staff.user.email||staff.profile.email||null,adminEmail:process.env.ADMIN_EMAIL||process.env.EMAIL_SEND_TO||'contacto@innova-space-edu.cl',emailHistory:emailHistory||[]});
+    return NextResponse.json({ok:true,scope,region,commune,locality:locality||null,effectiveCategory,incident,citizenReport:citizenReportPayload,organizations:rows,operatorEmail:staff.user.email||staff.profile.email||null,adminEmail:process.env.ADMIN_EMAIL||process.env.EMAIL_SEND_TO||'contacto@innova-space-edu.cl',emailHistory:emailHistory||[]});
   }catch(error){console.error(error);return NextResponse.json({error:'No fue posible cargar los contactos territoriales'},{status:500})}
 }
