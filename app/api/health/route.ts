@@ -9,6 +9,9 @@ export async function GET(){
   let gateway=false;
   let gatewayLatencyMs:number|null=null;
   let staffEmailBroadcastConfigured=false;
+  let agentConfigured=false;
+  let aiProviders={gemini:false,groq:false,openrouter:false};
+  let aiModels:Record<string,string>={};
   try{
     const t=Date.now();
     const r=await callEmergencyGateway('public-incidents',{method:'GET',signal:AbortSignal.timeout(5000)});
@@ -22,6 +25,13 @@ export async function GET(){
       const r=await fetch(`${supabaseUrl}/functions/v1/emergency-email-broadcast`,{headers:{apikey:publishable},cache:'no-store',signal:AbortSignal.timeout(4000)});
       const j=await r.json().catch(()=>({}));staffEmailBroadcastConfigured=Boolean(r.ok&&j.configured);
     }catch{}
+    try{
+      const r=await fetch(`${supabaseUrl}/functions/v1/agent-worker`,{headers:{apikey:publishable},cache:'no-store',signal:AbortSignal.timeout(4000)});
+      const j=await r.json().catch(()=>({}));
+      agentConfigured=Boolean(r.ok&&j.configured);
+      aiProviders={gemini:Boolean(j?.providers?.gemini),groq:Boolean(j?.providers?.groq),openrouter:Boolean(j?.providers?.openrouter)};
+      aiModels=j?.models&&typeof j.models==='object'?j.models:{};
+    }catch{}
   }
   const coreConfigured=Boolean(supabaseUrl&&publishable);
   const payload={
@@ -33,7 +43,9 @@ export async function GET(){
       supabaseConfigured:coreConfigured,
       emergencyGateway:gateway,
       gatewayLatencyMs,
-      aiConfigured:Boolean(process.env.GEMINI_API_KEY),
+      aiConfigured:agentConfigured,
+      aiProviders,
+      aiModels,
       mailConfigured:Boolean(process.env.RESEND_API_KEY&&(process.env.EMAIL_FROM||'contacto@innova-space-edu.cl')),
       staffEmailBroadcastConfigured,
       mailProvider:'resend',
