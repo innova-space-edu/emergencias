@@ -1,9 +1,5 @@
 # Innova Emergency
 
-**Innova Emergency** es una plataforma ciudadana de canalización, clasificación, seguimiento y gestión de emergencias geolocalizadas desarrollada por **Innova Space Education SpA**.
-
-> **Aviso operacional:** esta plataforma complementa la comunicación ciudadana. **No reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED**, y no constituye por sí sola una orden oficial de despacho.
-
 <p align="center">
   <img src="https://img.shields.io/badge/Next.js-16.2.12-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js" />
   <img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20PostGIS-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
@@ -14,6 +10,7 @@
 </p>
 
 ---
+**Innova Emergency** es una plataforma ciudadana de canalización, clasificación, seguimiento y gestión de emergencias geolocalizadas desarrollada por **Innova Space Education SpA**.
 
 ## Objetivo
 
