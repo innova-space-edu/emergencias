@@ -60,5 +60,21 @@ select id,v.type,v.label,v.value,v.direct_send,false,v.is_primary,true,v.source,
 ) as v(type,label,value,direct_send,is_primary,source,notes)
 on conflict (organization_id,channel_type,value) do update set direct_send=excluded.direct_send,automation_enabled=false,is_primary=excluded.is_primary,active=true,source_url=excluded.source_url,verified_at=excluded.verified_at,notes=excluded.notes;
 
+-- Correos verificados prioritarios que sí pueden recibir preavisos automáticos.
+update public.organization_channels c set automation_enabled=true,updated_at=now()
+from public.organizations o
+where c.organization_id=o.id and c.active=true and c.direct_send=true and c.channel_type='email'
+and o.name in ('CGE','SENAPRED Antofagasta','Aguas Antofagasta','Municipalidad de Antofagasta - Seguridad Pública','Municipalidad de Antofagasta - Gestión del Riesgo de Desastres');
+
+-- Cobertura comunal. Menor número = mayor preferencia dentro del mismo tipo de organismo.
+with loc as (select id from public.territorial_localities where active=true and region='Antofagasta' and commune='Antofagasta'), org as (select id from public.organizations where name='Aguas Antofagasta' and commune='Antofagasta' limit 1)
+insert into public.organization_coverage(organization_id,locality_id,priority,active) select org.id,loc.id,1,true from org cross join loc on conflict (organization_id,locality_id) do update set priority=least(public.organization_coverage.priority,excluded.priority),active=true;
+with loc as (select id from public.territorial_localities where active=true and region='Antofagasta' and commune='Antofagasta'), org as (select id from public.organizations where name='Municipalidad de Antofagasta - Gestión del Riesgo de Desastres' and commune='Antofagasta' limit 1)
+insert into public.organization_coverage(organization_id,locality_id,priority,active) select org.id,loc.id,2,true from org cross join loc on conflict (organization_id,locality_id) do update set priority=least(public.organization_coverage.priority,excluded.priority),active=true;
+with loc as (select id from public.territorial_localities where active=true and region='Antofagasta' and commune='Antofagasta'), org as (select id from public.organizations where name='Municipalidad de Antofagasta - Seguridad Pública' and commune='Antofagasta' limit 1)
+insert into public.organization_coverage(organization_id,locality_id,priority,active) select org.id,loc.id,5,true from org cross join loc on conflict (organization_id,locality_id) do update set priority=least(public.organization_coverage.priority,excluded.priority),active=true;
+with loc as (select id from public.territorial_localities where active=true and region='Antofagasta' and commune='Antofagasta'), org as (select id from public.organizations where name='Radio Canal 95 Antofagasta' and commune='Antofagasta' limit 1)
+insert into public.organization_coverage(organization_id,locality_id,priority,active) select org.id,loc.id,50,true from org cross join loc on conflict (organization_id,locality_id) do update set priority=least(public.organization_coverage.priority,excluded.priority),active=true;
+
 -- Prealerta automática regional por email: la habilitación final depende también de automation_enabled del canal.
 update public.ai_agent_policies set auto_prealert_enabled=true,allowed_channel_types=array['email']::text[],updated_at=now() where active=true and region='Antofagasta' and commune is null;
