@@ -4,22 +4,22 @@ import { getServerSupabase } from '@/lib/supabase/server';
 
 export const runtime='nodejs';
 const CATEGORY_KINDS:Record<string,string[]>={
-  fire:['fire','emergency_management','municipality','radio'],
-  traffic_accident:['police','medical','fire','emergency_management','municipality','radio'],
-  medical:['medical','emergency_management','municipality'],
-  flood:['emergency_management','water','municipality','fire','radio'],
-  landslide:['emergency_management','municipality','fire','police','radio'],
-  earthquake_damage:['emergency_management','municipality','fire','medical','radio'],
-  power_outage:['electricity','emergency_management','municipality','radio'],
-  electrical_hazard:['electricity','fire','emergency_management','municipality'],
-  gas_leak:['fire','emergency_management','municipality','police'],
-  water_outage:['water','emergency_management','municipality','radio'],
-  fallen_tree:['municipality','fire','emergency_management'],
-  missing_person:['police','emergency_management','municipality','radio'],
-  maritime:['emergency_management','police','medical','radio'],
-  security:['police','municipality','emergency_management'],
-  pollution:['municipality','emergency_management','water','radio'],
-  other:['emergency_management','municipality','radio'],
+  fire:['fire','wildfire','emergency_management','municipality','municipal_operations','government_coordination','radio'],
+  traffic_accident:['police','medical','fire','transport','municipal_transport','roads','public_works','rail','emergency_management','municipality','radio'],
+  medical:['medical','health_authority','emergency_management','municipality'],
+  flood:['emergency_management','municipal_operations','water','public_works','roads','water_regulator','water_resources','government_coordination','municipality','fire','environment','radio'],
+  landslide:['emergency_management','municipal_operations','roads','public_works','transport','government_coordination','municipality','fire','police','radio'],
+  earthquake_damage:['emergency_management','municipal_operations','municipal_works','public_works','housing_urban','government_coordination','municipality','fire','medical','radio'],
+  power_outage:['electricity','energy_regulator','municipal_operations','emergency_management','government_coordination','municipality','telecom_regulator','radio'],
+  electrical_hazard:['electricity','energy_regulator','fire','municipal_operations','emergency_management','municipality'],
+  gas_leak:['fire','energy_regulator','emergency_management','municipality','police'],
+  water_outage:['water','water_regulator','water_resources','emergency_management','government_coordination','municipality','radio'],
+  fallen_tree:['municipal_environment','municipal_operations','wildfire','municipality','fire','emergency_management'],
+  missing_person:['police','emergency_management','government_coordination','municipality','radio'],
+  maritime:['maritime','emergency_management','police','medical','government_coordination','radio'],
+  security:['police','government_coordination','municipality','emergency_management'],
+  pollution:['environment','municipal_environment','municipal_cleaning','water','water_regulator','maritime','municipality','emergency_management','radio'],
+  other:['emergency_management','government_coordination','municipality','municipal_operations','public_works','radio'],
 };
 
 export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
