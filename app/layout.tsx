@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
+import {Suspense} from 'react';
 import './globals.css';
 import './compat.css';
 import './operations-extra.css';
@@ -17,6 +18,7 @@ import 'leaflet/dist/leaflet.css';
 import ServiceWorkerRegister from '@/components/service-worker-register';
 import ConnectionBadge from '@/components/connection-badge';
 import SiteNavigation from '@/components/site-navigation';
+import SiteVisitorPresence from '@/components/site-visitor-presence';
 
 export const metadata: Metadata = {
   title: 'Innova Emergency',
@@ -31,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="es">
       <body>
         <ServiceWorkerRegister />
+        <Suspense fallback={null}><SiteVisitorPresence /></Suspense>
         <header className="topbar">
           <Link className="brand" href="/" aria-label="Innova Emergency - Inicio">
             <span className="brand-mark">IE</span>
