@@ -19,8 +19,12 @@ function actionLabel(type:string){return type==='email'?'Preparar correo':type==
 function hrefFor(type:string,value:string){const v=value.trim();if(type==='phone')return `tel:${v.replace(/[^+\d*#]/g,'')}`;if(type==='whatsapp')return `https://wa.me/${v.replace(/\D/g,'')}`;if(['facebook','instagram','x','web'].includes(type)&&/^https?:\/\//i.test(v))return v;return null}
 function dateLabel(value?:string|null){if(!value)return 'Sin fecha';try{return new Date(value).toLocaleDateString('es-CL')}catch{return 'Sin fecha'}}
 function defaultDraft(i:Incident,orgName:string){
- const subject=`Alerta informativa ${i.public_code} — Innova Emergency`;
- const message=`Innova Emergency canaliza un reporte ciudadano a ${orgName}.\n\nCódigo: ${i.public_code}\nTipo: ${i.title||i.category}\nPrioridad: ${i.severity}/5\nEstado: ${i.status}\nComuna: ${i.commune||'No indicada'}\nLocalidad: ${i.locality||'No indicada'}\nReferencia: ${i.address_approx||'Ubicación registrada'}\nGPS: ${i.latitude ?? '—'}, ${i.longitude ?? '—'}\nResumen: ${i.public_summary||'En revisión'}\n\nEsta comunicación canaliza información ciudadana y no confirma la veracidad del hecho ni constituye una orden de despacho. Innova Emergency complementa los canales oficiales y no reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED.`;
+ const type=i.title||i.category;
+ const level=i.severity>=4?'ALERTA':i.severity===3?'AVISO PRIORITARIO':'AVISO INFORMATIVO';
+ const status=i.status==='notified'?'Notificado':i.status;
+ const trackingUrl=typeof window!=='undefined'?`${window.location.origin}/`:'https://emergencias-4yfs.vercel.app/';
+ const subject=`[${level} P${i.severity}] ${i.public_code} · ${type} · ${i.commune||'Ubicación por confirmar'}`;
+ const message=`Estimados/as equipo de ${orgName}:\n\nJunto con saludar, Innova Emergency informa la recepción de un reporte ciudadano relacionado con una posible situación de emergencia.\n\nDATOS DEL REPORTE\n\nCódigo de emergencia: ${i.public_code}\nTipo: ${type}\nPrioridad: ${i.severity}/5\nEstado: ${status}\nComuna: ${i.commune||'No indicada'}\nLocalidad / calle: ${i.locality||'No indicada'}\nReferencia: ${i.address_approx||'Ubicación registrada'}\nGPS: ${i.latitude ?? '—'}, ${i.longitude ?? '—'}\n\nDESCRIPCIÓN\n${i.public_summary||'Información en revisión.'}\n\nSe remite este antecedente para su conocimiento y evaluación conforme a sus protocolos internos.\n\nPágina de seguimiento:\n${trackingUrl}\n\nEste mensaje corresponde a la canalización de información proporcionada por ciudadanos. Innova Emergency no certifica por sí sola la veracidad del hecho y esta comunicación no constituye una orden oficial de despacho.\n\nAnte una emergencia inmediata deben utilizarse también los canales oficiales correspondientes: 131 SAMU, 132 Bomberos, 133 Carabineros y los sistemas oficiales de SENAPRED/SAE.\n\nAtentamente,\nInnova Emergency\nInnova Space Education\ncontacto@innova-space-edu.cl`;
  return {subject,message};
 }
 
