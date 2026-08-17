@@ -6,9 +6,9 @@ import ContactAdminButton from '@/components/contact-admin-button';
 export default async function OperationsLayout({ children }: { children: React.ReactNode }) {
   const { profile } = await requireStaff();
   const links = <>
+    <Link href="/operaciones">Emergencias activas</Link>
     {profile.role === 'admin' ? <Link href="/operaciones/admin">Dashboard administrador</Link> : null}
     {profile.role === 'admin' ? <Link href="/operaciones/admin/reportes">Reportes ciudadanos</Link> : null}
-    <Link href="/operaciones">Emergencias activas</Link>
     <Link href="/operaciones/agente">Agente IA</Link>
     <Link href="/operaciones/historial">Historial general</Link>
     <Link href="/operaciones/directorio">Directorio territorial</Link>
