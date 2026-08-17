@@ -1,0 +1,21 @@
+@media(max-width:900px){
+  .ops-shell{display:block!important;min-height:calc(100dvh - 74px)!important}
+  .ops-sidebar{display:none!important}
+  .ops-mobile-menu{display:block;position:sticky;top:74px;z-index:45;background:#081522;color:#fff;border-bottom:1px solid #1d3447;box-shadow:0 5px 18px rgba(0,0,0,.15)}
+  .ops-mobile-menu summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:58px;padding:10px 14px;cursor:pointer}
+  .ops-mobile-menu summary::-webkit-details-marker{display:none}
+  .ops-mobile-menu summary>span{display:flex;min-width:0;flex-direction:column;gap:3px}.ops-mobile-menu summary b{font-size:14px}.ops-mobile-menu summary small{font-size:10px;color:#8fa8ba;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ops-mobile-menu summary strong{flex:0 0 auto;background:#163047;border:1px solid #27475e;border-radius:9px;padding:8px 10px;font-size:12px}
+  .ops-mobile-menu[open] summary strong:after{content:' ×';font-size:15px}
+  .ops-mobile-menu nav{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 12px 12px}
+  .ops-mobile-menu nav a{display:flex;align-items:center;min-height:44px;padding:10px 11px;border-radius:9px;background:#102538;border:1px solid #1d3649;color:#dbe7ef;font-size:12px;font-weight:700}
+  .ops-mobile-menu nav a:active,.ops-mobile-menu nav a:focus-visible{background:#18364e;outline:2px solid #66a9ff;outline-offset:1px}
+  .ops-mobile-user{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #203547;padding:10px 14px 12px;font-size:11px;color:#9db2c1}.ops-mobile-user span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ops-mobile-user .text-button{flex:0 0 auto;color:#86bcef}
+  .ops-main{min-width:0;width:100%}
+  .ops-toolbar{min-height:68px!important;height:auto!important;padding:11px 12px!important;gap:8px;align-items:center}.ops-toolbar h1{font-size:18px!important}.ops-toolbar .eyebrow{font-size:9px}.role-chip{font-size:9px;padding:5px 7px}.ops-toolbar-actions{gap:5px}
+}
+
+@media(max-width:520px){
+  .ops-mobile-menu nav{grid-template-columns:1fr}.ops-mobile-menu summary{padding-left:10px;padding-right:10px}
+  .ops-toolbar{align-items:flex-start;flex-direction:column}.ops-toolbar-actions{width:100%;justify-content:space-between}
+}
