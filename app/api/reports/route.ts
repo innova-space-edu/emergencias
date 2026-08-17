@@ -1,7 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { callEmergencyGateway } from '@/lib/gateway';
+import { runEmergencyAgent } from '@/lib/emergency-agent';
 export const runtime='nodejs';
+export const maxDuration=60;
 export async function POST(req:NextRequest){
-  try{const body=await req.text();const r=await callEmergencyGateway('reports',{method:'POST',body});return new NextResponse(await r.text(),{status:r.status,headers:{'content-type':'application/json'}})}
-  catch{return NextResponse.json({error:'No fue posible conectar con el receptor de emergencias'},{status:503})}
+  try{
+    const body=await req.text();
+    const r=await callEmergencyGateway('reports',{method:'POST',body});
+    const text=await r.text();
+    if(r.ok){
+      try{
+        const input=JSON.parse(body),result=JSON.parse(text);
+        if(!result?.idempotent && input?.id && input?.secret)after(async()=>{await runEmergencyAgent(input)});
+      }catch{}
+    }
+    return new NextResponse(text,{status:r.status,headers:{'content-type':'application/json'}})
+  }catch{return NextResponse.json({error:'No fue posible conectar con el receptor de emergencias'},{status:503})}
 }
