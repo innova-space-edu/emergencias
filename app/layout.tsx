@@ -8,6 +8,7 @@ import './operations-mobile.css';
 import './directory.css';
 import './agent.css';
 import './agent-inbox.css';
+import './interface-fixes.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import 'leaflet/dist/leaflet.css';
 import ServiceWorkerRegister from '@/components/service-worker-register';
@@ -36,9 +37,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <ConnectionBadge />
         </header>
         <main>{children}</main>
-        <footer className="footer">
-          <span>Innova Emergency · Innova Space Education</span>
-          <span>Este sistema ayuda a canalizar información y no reemplaza los canales oficiales de emergencia.</span>
+        <footer className="footer company-footer">
+          <a className="company-footer-link" href="https://innova-space-edu.cl" target="_blank" rel="noreferrer" aria-label="Ir a Innova Space Education">© 2026 Innova Space Education SpA</a>
         </footer>
       </body>
     </html>
