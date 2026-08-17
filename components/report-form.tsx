@@ -3,7 +3,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 're
 import { EMERGENCY_CATEGORIES } from '@/lib/constants';
 import { randomSecret } from '@/lib/crypto';
 import { getOfflineReports, saveOfflineReport } from '@/lib/offline-db';
-import { requestBackgroundSync, syncOneReport } from '@/lib/sync-queue';
+import { requestBackgroundSync, syncOneReport, syncPendingReports } from '@/lib/sync-queue';
 import type { EvidenceDraft, OfflineReport } from '@/lib/types';
 import LocationPicker from '@/components/location-picker';
 
@@ -14,14 +14,29 @@ export default function ReportForm(){
  const [coords,setCoords]=useState<Coordinates|null>(null);const [locating,setLocating]=useState(false);const [files,setFiles]=useState<EvidenceDraft[]>([]);const [status,setStatus]=useState<string>('');const [savedCode,setSavedCode]=useState('');const [pending,setPending]=useState<OfflineReport[]>([]);const [sending,setSending]=useState(false);const fileRef=useRef<HTMLInputElement|null>(null);
  const [region,setRegion]=useState('Antofagasta'),[commune,setCommune]=useState('Antofagasta'),[locality,setLocality]=useState(''),[addressApprox,setAddressApprox]=useState(''),[locationInfo,setLocationInfo]=useState('');
  const touched=useRef({region:false,commune:false,locality:false,addressApprox:false});
- const redirectTimer=useRef<number|null>(null),awaitingConfirmation=useRef(false);
+ const redirectTimer=useRef<number|null>(null),awaitingConfirmation=useRef(false),retryingPending=useRef(false);
  const totalBytes=useMemo(()=>files.reduce((a,b)=>a+b.size,0),[files]);
 
  function locate(){if(!navigator.geolocation){setStatus('Tu navegador no permite obtener GPS. Selecciona el punto manualmente en el mapa.');return;}setLocating(true);navigator.geolocation.getCurrentPosition(p=>{setCoords({lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy});setLocating(false)},()=>{setStatus('No fue posible obtener GPS. Puedes seleccionar el punto manualmente.');setLocating(false)},{enableHighAccuracy:true,timeout:12000,maximumAge:15000});}
  function scheduleHomeRedirect(){if(redirectTimer.current)window.clearTimeout(redirectTimer.current);redirectTimer.current=window.setTimeout(()=>window.location.assign('/'),2800);}
  async function refreshPending(){setPending(await getOfflineReports().catch(()=>[]))}
+ async function retryPending(){
+   if(retryingPending.current)return;
+   if(!navigator.onLine){await refreshPending();return;}
+   retryingPending.current=true;
+   try{
+     const before=await getOfflineReports().catch(()=>[]);setPending(before);if(!before.length)return;
+     const completed=await syncPendingReports().catch(()=>[]);
+     const remaining=await getOfflineReports().catch(()=>[]);setPending(remaining);
+     if(completed.length){
+       const latest=completed[completed.length-1];if(latest.publicCode)setSavedCode(latest.publicCode);
+       if(!remaining.length){setStatus('Emergencia recibida correctamente por la plataforma. Volviendo al inicio…');awaitingConfirmation.current=false;scheduleHomeRedirect();}
+       else setStatus(`${completed.length} envío(s) confirmado(s). ${remaining.length} continúa(n) pendiente(s) y se volverá(n) a intentar.`);
+     }
+   }finally{retryingPending.current=false;}
+ }
 
- useEffect(()=>{locate();refreshPending();const f=()=>refreshPending();const onSwMessage=(event:MessageEvent)=>{if(event.data?.type==='REPORT_SYNCED'){refreshPending();if(event.data?.publicCode)setSavedCode(event.data.publicCode);setStatus('Emergencia recibida correctamente por la plataforma. Volviendo al inicio…');if(awaitingConfirmation.current){awaitingConfirmation.current=false;scheduleHomeRedirect();}}};window.addEventListener('online',f);window.addEventListener('offline',f);navigator.serviceWorker?.addEventListener('message',onSwMessage);return()=>{window.removeEventListener('online',f);window.removeEventListener('offline',f);navigator.serviceWorker?.removeEventListener('message',onSwMessage);if(redirectTimer.current)window.clearTimeout(redirectTimer.current)}},[]);
+ useEffect(()=>{locate();void retryPending();const onOnline=()=>{void retryPending()};const onOffline=()=>{void refreshPending()};const onSwMessage=(event:MessageEvent)=>{if(event.data?.type==='REPORT_ACCEPTED'||event.data?.type==='REPORT_SYNCED'){void refreshPending();if(event.data?.publicCode)setSavedCode(event.data.publicCode);setStatus(event.data?.type==='REPORT_ACCEPTED'?'Emergencia recibida correctamente. La evidencia restante seguirá cargándose automáticamente. Volviendo al inicio…':'Emergencia recibida correctamente por la plataforma. Volviendo al inicio…');awaitingConfirmation.current=false;scheduleHomeRedirect();}};window.addEventListener('online',onOnline);window.addEventListener('offline',onOffline);navigator.serviceWorker?.addEventListener('message',onSwMessage);return()=>{window.removeEventListener('online',onOnline);window.removeEventListener('offline',onOffline);navigator.serviceWorker?.removeEventListener('message',onSwMessage);if(redirectTimer.current)window.clearTimeout(redirectTimer.current)}},[]);
 
  useEffect(()=>{
    if(!coords)return;
@@ -61,6 +76,6 @@ export default function ReportForm(){
    <div className="form-section"><h2>4. Evidencia privada</h2><p className="muted">Las fotografías y videos no son visibles para ciudadanos. Solo administrador, operadores y autoridades autorizadas.</p><input ref={fileRef} type="file" accept="image/*,video/*" multiple onChange={addFiles}/><div className="evidence-list">{files.map(f=><div key={f.id}><span>{f.mediaType==='video'?'🎥':'📷'} {f.name}</span><button type="button" className="text-button" onClick={()=>setFiles(p=>p.filter(x=>x.id!==f.id))}>Quitar</button></div>)}</div>{files.length?<span className="muted tiny">{files.length} archivo(s) · {(totalBytes/1024/1024).toFixed(1)} MB</span>:null}</div>
    <button className="btn btn-danger btn-xl" type="submit" disabled={sending}>{sending?'Enviando y confirmando…':'Enviar emergencia'}</button>
    {savedCode?<div className="receipt"><b>{savedCode}</b><span>{status}</span></div>:status?<div className="alert warning">{status}</div>:null}
-   {pending.length?<div className="pending-box"><div className="section-title-row"><h3>Envíos pendientes en este dispositivo</h3><button type="button" className="text-button" onClick={refreshPending}>Actualizar</button></div>{pending.map(r=><div className="pending-item" key={r.id}><div><b>{r.publicCode||EMERGENCY_CATEGORIES.find(x=>x[0]===r.category)?.[1]||r.category}</b><small>{new Date(r.capturedAt).toLocaleString('es-CL')} · {r.evidence.length} evidencia(s)</small>{r.lastError?<small>{r.lastError}</small>:null}</div><span className={`pending-state ${r.state}`}>{r.serverAccepted?'Recibida · completando':navigator.onLine?r.state==='failed'?'Reintentará':'En cola':'Esperando señal'}</span></div>)}</div>:null}
+   {pending.length?<div className="pending-box"><div className="section-title-row"><h3>Envíos pendientes en este dispositivo</h3><button type="button" className="text-button" onClick={()=>void retryPending()}>Reintentar ahora</button></div>{pending.map(r=><div className="pending-item" key={r.id}><div><b>{r.publicCode||EMERGENCY_CATEGORIES.find(x=>x[0]===r.category)?.[1]||r.category}</b><small>{new Date(r.capturedAt).toLocaleString('es-CL')} · {r.evidence.length} evidencia(s)</small>{r.lastError?<small>{r.lastError}</small>:null}</div><span className={`pending-state ${r.state}`}>{r.serverAccepted?'Recibida · completando':navigator.onLine?r.state==='failed'?'Reintentará':'En cola':'Esperando señal'}</span></div>)}</div>:null}
  </form>;
 }
