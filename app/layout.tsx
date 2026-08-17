@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Link from 'next/link';
+import {Suspense} from 'react';
 import './globals.css';
 import './compat.css';
 import './operations-extra.css';
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="es">
       <body>
         <ServiceWorkerRegister />
-        <SiteVisitorPresence />
+        <Suspense fallback={null}><SiteVisitorPresence /></Suspense>
         <header className="topbar">
           <Link className="brand" href="/" aria-label="Innova Emergency - Inicio">
             <span className="brand-mark">IE</span>
