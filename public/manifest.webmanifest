@@ -1,6 +1,6 @@
 {
-  "name":"Innova Emergencias",
-  "short_name":"Emergencias",
+  "name":"Innova Emergency",
+  "short_name":"Emergency",
   "description":"Canalización ciudadana de emergencias geolocalizadas",
   "start_url":"/",
   "scope":"/",
