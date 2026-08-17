@@ -3,7 +3,7 @@ import { getApiStaff } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase/server';
 
 export const runtime='nodejs';
-const ALLOWED_KINDS=['fire','medical','police','electricity','emergency_management','municipality','radio'];
+const ALLOWED_KINDS=['fire','medical','police','electricity','water','emergency_management','municipality','radio'];
 
 export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
   const staff=await getApiStaff();
