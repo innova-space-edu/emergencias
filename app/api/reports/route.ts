@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { callEmergencyGateway } from '@/lib/gateway';
 import { runEmergencyAgent } from '@/lib/emergency-agent';
+import { triggerStaffEmergencyBroadcast } from '@/lib/email-broadcast';
 export const runtime='nodejs';
 export const maxDuration=60;
 export async function POST(req:NextRequest){
@@ -11,7 +12,7 @@ export async function POST(req:NextRequest){
     if(r.ok){
       try{
         const input=JSON.parse(body),result=JSON.parse(text);
-        if(!result?.idempotent && input?.id && input?.secret)after(async()=>{await runEmergencyAgent(input)});
+        if(!result?.idempotent&&input?.id&&input?.secret)after(async()=>{await Promise.allSettled([runEmergencyAgent(input),triggerStaffEmergencyBroadcast(input.id,input.secret)])});
       }catch{}
     }
     return new NextResponse(text,{status:r.status,headers:{'content-type':'application/json'}})
