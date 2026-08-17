@@ -1,42 +1,315 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import {createClient} from 'npm:@supabase/supabase-js@2.111.0';
+import { createClient } from 'npm:@supabase/supabase-js@2.111.0';
 
-const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Content-Type':'application/json; charset=utf-8'};
-const json=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:cors});
-const ACTIVE=['received','reviewing','verified','critical','notified','responding'];
-const CATEGORIES=['fire','traffic_accident','medical','flood','landslide','earthquake_damage','power_outage','electrical_hazard','gas_leak','water_outage','fallen_tree','missing_person','maritime','security','pollution','other'];
-const categoryKinds:Record<string,string[]>={fire:['fire','emergency_management','municipality','radio'],traffic_accident:['police','medical','fire','emergency_management','municipality','radio'],medical:['medical','emergency_management','municipality'],flood:['emergency_management','municipality','fire','radio'],landslide:['emergency_management','municipality','fire','police','radio'],earthquake_damage:['emergency_management','municipality','fire','medical','radio'],power_outage:['electricity','emergency_management','municipality','radio'],electrical_hazard:['electricity','fire','emergency_management','municipality'],gas_leak:['fire','emergency_management','municipality','police'],water_outage:['municipality','emergency_management','radio'],fallen_tree:['municipality','fire','emergency_management'],missing_person:['police','emergency_management','municipality','radio'],maritime:['emergency_management','police','medical','radio'],security:['police','municipality','emergency_management'],pollution:['municipality','emergency_management','radio'],other:['emergency_management','municipality']};
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Content-Type': 'application/json; charset=utf-8',
+};
+const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: cors });
+const ACTIVE = ['received', 'reviewing', 'verified', 'critical', 'notified', 'responding'];
+const CATEGORIES = ['fire','traffic_accident','medical','flood','landslide','earthquake_damage','power_outage','electrical_hazard','gas_leak','water_outage','fallen_tree','missing_person','maritime','security','pollution','other'];
+const categoryKinds: Record<string,string[]> = {
+  fire:['fire','emergency_management','municipality','radio'],
+  traffic_accident:['police','medical','fire','emergency_management','municipality','radio'],
+  medical:['medical','emergency_management','municipality'],
+  flood:['emergency_management','municipality','fire','radio'],
+  landslide:['emergency_management','municipality','fire','police','radio'],
+  earthquake_damage:['emergency_management','municipality','fire','medical','radio'],
+  power_outage:['electricity','emergency_management','municipality','radio'],
+  electrical_hazard:['electricity','fire','emergency_management','municipality'],
+  gas_leak:['fire','emergency_management','municipality','police'],
+  water_outage:['municipality','emergency_management','radio'],
+  fallen_tree:['municipality','fire','emergency_management'],
+  missing_person:['police','emergency_management','municipality','radio'],
+  maritime:['emergency_management','police','medical','radio'],
+  security:['police','municipality','emergency_management'],
+  pollution:['municipality','emergency_management','radio'],
+  other:['emergency_management','municipality'],
+};
 
-function secretKey(){const modern=Deno.env.get('SUPABASE_SECRET_KEYS');if(modern){try{return JSON.parse(modern).default as string}catch{}}return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||''}
-function db(){const url=Deno.env.get('SUPABASE_URL')||'',key=secretKey();if(!url||!key)throw new Error('Supabase server credentials unavailable');return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})}
-function validUuid(v:unknown){return typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)}
-async function sha256(value:string){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('')}
-async function authenticateStaff(sb:any,req:Request){const auth=req.headers.get('authorization')||'';const token=auth.toLowerCase().startsWith('bearer ')?auth.slice(7):'';if(!token)return null;const {data:{user}}=await sb.auth.getUser(token);if(!user)return null;const {data:profile}=await sb.from('profiles').select('user_id,email,role,active').eq('user_id',user.id).maybeSingle();if(!profile?.active)return null;return {user,profile}}
-async function verifyReport(sb:any,reportId:string,secret:string){if(!validUuid(reportId)||secret.length<24)return null;const {data}=await sb.from('reports').select('id,incident_id,submission_secret_hash').eq('id',reportId).maybeSingle();if(!data)return null;return data.submission_secret_hash===await sha256(secret)?data:null}
-function base64(bytes:Uint8Array){let out='';const size=0x8000;for(let i=0;i<bytes.length;i+=size)out+=String.fromCharCode(...bytes.subarray(i,Math.min(i+size,bytes.length)));return btoa(out)}
-async function loadImages(sb:any,incidentId:string){const {data}=await sb.from('evidence').select('storage_path,mime_type,bytes').eq('incident_id',incidentId).eq('media_type','image').order('created_at',{ascending:false}).limit(3);const images:any[]=[];for(const e of data||[]){if(!String(e.mime_type||'').startsWith('image/')||Number(e.bytes||0)>5_000_000)continue;try{const {data:signed}=await sb.storage.from('emergency-evidence').createSignedUrl(e.storage_path,90);if(!signed?.signedUrl)continue;const r=await fetch(signed.signedUrl,{signal:AbortSignal.timeout(12000)});if(!r.ok)continue;const bytes=new Uint8Array(await r.arrayBuffer());if(bytes.byteLength>5_000_000)continue;images.push({mimeType:e.mime_type||'image/jpeg',data:base64(bytes)})}catch{}}return images}
+type Assessment = {
+  category:string;
+  severity:number;
+  summary:string;
+  confidence:number;
+  recommendedOrganizations:string[];
+  reason:string;
+  needsHumanReview:boolean;
+  inconsistencies:string[];
+};
 
-async function callGemini(input:{category:string;description:string;dangerFlags:string[];images:any[]}){
- const key=Deno.env.get('GEMINI_API_KEY')?.trim();if(!key)throw new Error('GEMINI_API_KEY no está configurada en Supabase Edge Function Secrets');
- const preferred=(Deno.env.get('GEMINI_MODEL')||'gemini-3.6-flash').trim();
- const models=[...new Set([preferred,'gemini-2.5-flash','gemini-2.5-flash-lite'])];
- const schema={type:'object',properties:{category:{type:'string',enum:CATEGORIES},severity:{type:'integer',minimum:1,maximum:5},summary:{type:'string'},confidence:{type:'number',minimum:0,maximum:1},recommendedOrganizations:{type:'array',items:{type:'string'},maxItems:12},reason:{type:'string'},needsHumanReview:{type:'boolean'},inconsistencies:{type:'array',items:{type:'string'},maxItems:10}},required:['category','severity','summary','confidence','recommendedOrganizations','reason','needsHumanReview','inconsistencies'],additionalProperties:false};
- const prompt=`Eres el agente de triage de Innova Emergency para Chile. Apoya a operadores; no confirmes que el hecho sea verdadero, no identifiques personas, no inventes evidencia, no ordenes despachos y no reemplaces 131, 132, 133 ni SAE/SENAPRED. Clasifica conservadoramente. Si faltan datos, existen contradicciones, gravedad alta, heridos, atrapados, fuego, riesgo eléctrico o ambigüedad relevante, needsHumanReview debe ser true.\n\nCategoría declarada: ${input.category}\nDescripción: ${input.description||'(sin descripción)'}\nIndicadores: ${input.dangerFlags.join(', ')||'ninguno'}\nImágenes adjuntas: ${input.images.length}\n\nDevuelve categoría del catálogo, severidad 1-5, resumen factual corto, confianza 0-1, organizaciones recomendadas, razón, needsHumanReview e inconsistencias.`;
- const parts:any[]=[{text:prompt},...input.images.map(x=>({inlineData:{mimeType:x.mimeType,data:x.data}}))];
- const errors:string[]=[];
- for(const model of models){try{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts}],generationConfig:{responseMimeType:'application/json',responseSchema:schema}}),signal:AbortSignal.timeout(45000)});const raw=await r.text();if(!r.ok){errors.push(`${model}: ${r.status} ${raw.slice(0,300)}`);continue}const payload=JSON.parse(raw);const text=payload?.candidates?.[0]?.content?.parts?.map((p:any)=>p.text||'').join('')||'';const a=JSON.parse(text);return {assessment:{...a,severity:Math.min(5,Math.max(1,Number(a.severity)||1)),confidence:Math.min(1,Math.max(0,Number(a.confidence)||0)),recommendedOrganizations:Array.isArray(a.recommendedOrganizations)?a.recommendedOrganizations:[],inconsistencies:Array.isArray(a.inconsistencies)?a.inconsistencies:[],needsHumanReview:Boolean(a.needsHumanReview)},model}}catch(e){errors.push(`${model}: ${e instanceof Error?e.message:'error'}`)}}
- throw new Error(`Gemini no respondió correctamente. ${errors.join(' | ').slice(0,1200)}`)
+type ProviderResult = { assessment: Assessment; provider:'gemini'|'groq'|'openrouter'; model:string };
+
+const schema = {
+  type:'object',
+  properties:{
+    category:{type:'string',enum:CATEGORIES},
+    severity:{type:'integer',minimum:1,maximum:5},
+    summary:{type:'string'},
+    confidence:{type:'number',minimum:0,maximum:1},
+    recommendedOrganizations:{type:'array',items:{type:'string'},maxItems:12},
+    reason:{type:'string'},
+    needsHumanReview:{type:'boolean'},
+    inconsistencies:{type:'array',items:{type:'string'},maxItems:10},
+  },
+  required:['category','severity','summary','confidence','recommendedOrganizations','reason','needsHumanReview','inconsistencies'],
+  additionalProperties:false,
+};
+
+function secretKey(){
+  const modern=Deno.env.get('SUPABASE_SECRET_KEYS');
+  if(modern){ try { return JSON.parse(modern).default as string; } catch {} }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
+}
+function db(){
+  const url=Deno.env.get('SUPABASE_URL')||'', key=secretKey();
+  if(!url||!key) throw new Error('Supabase server credentials unavailable');
+  return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
+}
+function validUuid(v:unknown){ return typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v); }
+async function sha256(value:string){
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
+  return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function authenticateStaff(sb:any,req:Request){
+  const auth=req.headers.get('authorization')||'';
+  const token=auth.toLowerCase().startsWith('bearer ')?auth.slice(7):'';
+  if(!token)return null;
+  const {data:{user}}=await sb.auth.getUser(token);
+  if(!user)return null;
+  const {data:profile}=await sb.from('profiles').select('user_id,email,role,active').eq('user_id',user.id).maybeSingle();
+  if(!profile?.active)return null;
+  return {user,profile};
+}
+async function verifyReport(sb:any,reportId:string,secret:string){
+  if(!validUuid(reportId)||secret.length<24)return null;
+  const {data}=await sb.from('reports').select('id,incident_id,submission_secret_hash').eq('id',reportId).maybeSingle();
+  if(!data)return null;
+  return data.submission_secret_hash===await sha256(secret)?data:null;
+}
+function base64(bytes:Uint8Array){
+  let out=''; const size=0x8000;
+  for(let i=0;i<bytes.length;i+=size) out+=String.fromCharCode(...bytes.subarray(i,Math.min(i+size,bytes.length)));
+  return btoa(out);
+}
+async function loadImages(sb:any,incidentId:string){
+  const {data}=await sb.from('evidence').select('storage_path,mime_type,bytes').eq('incident_id',incidentId).eq('media_type','image').order('created_at',{ascending:false}).limit(3);
+  const images:any[]=[];
+  for(const e of data||[]){
+    if(!String(e.mime_type||'').startsWith('image/')||Number(e.bytes||0)>5_000_000)continue;
+    try{
+      const {data:signed}=await sb.storage.from('emergency-evidence').createSignedUrl(e.storage_path,90);
+      if(!signed?.signedUrl)continue;
+      const r=await fetch(signed.signedUrl,{signal:AbortSignal.timeout(12000)});
+      if(!r.ok)continue;
+      const bytes=new Uint8Array(await r.arrayBuffer());
+      if(bytes.byteLength>5_000_000)continue;
+      images.push({mimeType:e.mime_type||'image/jpeg',data:base64(bytes)});
+    }catch{}
+  }
+  return images;
 }
 
-async function policyFor(sb:any,region:string,commune:string){const {data:specific}=await sb.from('ai_agent_policies').select('*').eq('active',true).eq('region',region).eq('commune',commune).maybeSingle();if(specific)return specific;const {data:regional}=await sb.from('ai_agent_policies').select('*').eq('active',true).eq('region',region).is('commune',null).maybeSingle();return regional||{auto_triage_enabled:true,min_confidence_auto:.9,max_severity_auto:3}}
-async function routeOrganizations(sb:any,incident:any,category:string){const kinds=categoryKinds[category]||categoryKinds.other;let q=sb.from('organizations').select('id,name,kind,commune').eq('active',true).eq('region',incident.region||'Antofagasta').in('kind',kinds).limit(30);if(incident.commune)q=q.or(`commune.eq.${incident.commune},kind.eq.emergency_management`);const {data}=await q;return(data||[]).sort((a:any,b:any)=>kinds.indexOf(a.kind)-kinds.indexOf(b.kind)).slice(0,10)}
+function promptFor(input:{category:string;description:string;dangerFlags:string[];imageCount:number;visualAvailable:boolean}){
+  return `Eres el agente de triage de Innova Emergency para Chile. Apoya a operadores; no confirmes que el hecho sea verdadero, no identifiques personas, no inventes evidencia, no ordenes despachos y no reemplaces 131, 132, 133 ni SAE/SENAPRED. Clasifica conservadoramente. Si faltan datos, existen contradicciones, gravedad alta, heridos, atrapados, fuego, riesgo eléctrico o ambigüedad relevante, needsHumanReview debe ser true.\n\nCategoría declarada: ${input.category}\nDescripción: ${input.description||'(sin descripción)'}\nIndicadores: ${input.dangerFlags.join(', ')||'ninguno'}\nImágenes adjuntas registradas: ${input.imageCount}\nAcceso visual en este proveedor: ${input.visualAvailable?'sí':'no'}. ${input.visualAvailable?'Distingue lo descrito por el ciudadano de lo realmente visible.':'No hagas ninguna afirmación sobre el contenido de las imágenes; este proveedor de respaldo solo recibió texto y metadatos.'}\n\nDevuelve exclusivamente un objeto JSON con: category, severity 1-5, summary, confidence 0-1, recommendedOrganizations, reason, needsHumanReview e inconsistencies.`;
+}
+function parseJsonText(text:string){
+  const cleaned=text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
+  return JSON.parse(cleaned);
+}
+function normalizeAssessment(value:any):Assessment{
+  const category=CATEGORIES.includes(String(value?.category))?String(value.category):'other';
+  const recommended=Array.isArray(value?.recommendedOrganizations)?value.recommendedOrganizations.map((x:any)=>String(x).trim()).filter(Boolean).slice(0,12):[];
+  const inconsistencies=Array.isArray(value?.inconsistencies)?value.inconsistencies.map((x:any)=>String(x).trim()).filter(Boolean).slice(0,10):[];
+  return {
+    category,
+    severity:Math.min(5,Math.max(1,Number(value?.severity)||1)),
+    summary:String(value?.summary||'').trim().slice(0,1200),
+    confidence:Math.min(1,Math.max(0,Number(value?.confidence)||0)),
+    recommendedOrganizations:recommended,
+    reason:String(value?.reason||'').trim().slice(0,2400),
+    needsHumanReview:Boolean(value?.needsHumanReview),
+    inconsistencies,
+  };
+}
+
+async function callGemini(input:{category:string;description:string;dangerFlags:string[];images:any[]}):Promise<ProviderResult>{
+  const key=Deno.env.get('GEMINI_API_KEY')?.trim();
+  if(!key)throw new Error('GEMINI_API_KEY no configurada');
+  const preferred=(Deno.env.get('GEMINI_MODEL')||'gemini-3.6-flash').trim();
+  const models=[...new Set([preferred,'gemini-3.6-flash','gemini-3.5-flash-lite'])];
+  const prompt=promptFor({category:input.category,description:input.description,dangerFlags:input.dangerFlags,imageCount:input.images.length,visualAvailable:true});
+  const parts:any[]=[{text:prompt},...input.images.map(x=>({inlineData:{mimeType:x.mimeType,data:x.data}}))];
+  const errors:string[]=[];
+  for(const model of models){
+    try{
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{
+        method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},
+        body:JSON.stringify({contents:[{parts}],generationConfig:{responseMimeType:'application/json',responseSchema:schema}}),signal:AbortSignal.timeout(45000),
+      });
+      const raw=await r.text();
+      if(!r.ok){errors.push(`${model}: HTTP ${r.status} ${raw.slice(0,220)}`);continue;}
+      const payload=JSON.parse(raw);
+      const text=payload?.candidates?.[0]?.content?.parts?.map((p:any)=>p.text||'').join('')||'';
+      const assessment=normalizeAssessment(parseJsonText(text));
+      if(!assessment.summary)throw new Error('respuesta sin resumen');
+      return {assessment,provider:'gemini',model};
+    }catch(e){errors.push(`${model}: ${e instanceof Error?e.message:'error'}`);}
+  }
+  throw new Error(`Gemini falló: ${errors.join(' | ').slice(0,900)}`);
+}
+
+async function callGroq(input:{category:string;description:string;dangerFlags:string[];images:any[]}):Promise<ProviderResult>{
+  const key=Deno.env.get('GROQ_API_KEY')?.trim();
+  if(!key)throw new Error('GROQ_API_KEY no configurada');
+  const model=(Deno.env.get('GROQ_MODEL')||'openai/gpt-oss-20b').trim();
+  const prompt=promptFor({category:input.category,description:input.description,dangerFlags:input.dangerFlags,imageCount:input.images.length,visualAvailable:false});
+  const r=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    method:'POST',
+    headers:{'content-type':'application/json','authorization':`Bearer ${key}`},
+    body:JSON.stringify({model,messages:[{role:'system',content:'Responde únicamente JSON válido. No uses Markdown.'},{role:'user',content:prompt}],response_format:{type:'json_object'}}),
+    signal:AbortSignal.timeout(40000),
+  });
+  const raw=await r.text();
+  if(!r.ok)throw new Error(`Groq HTTP ${r.status}: ${raw.slice(0,500)}`);
+  const payload=JSON.parse(raw);
+  const text=payload?.choices?.[0]?.message?.content||'';
+  const assessment=normalizeAssessment(parseJsonText(String(text)));
+  if(!assessment.summary)throw new Error('Groq devolvió una respuesta incompleta');
+  return {assessment,provider:'groq',model};
+}
+
+async function callOpenRouter(input:{category:string;description:string;dangerFlags:string[];images:any[]}):Promise<ProviderResult>{
+  const key=Deno.env.get('OPENROUTER_API_KEY')?.trim();
+  if(!key)throw new Error('OPENROUTER_API_KEY no configurada');
+  const model=(Deno.env.get('OPENROUTER_MODEL')||'openai/gpt-oss-20b').trim();
+  const site=Deno.env.get('INNOVA_EMERGENCY_URL')||'https://emergencias-4yfs.vercel.app';
+  const prompt=promptFor({category:input.category,description:input.description,dangerFlags:input.dangerFlags,imageCount:input.images.length,visualAvailable:false});
+  const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+    method:'POST',
+    headers:{'content-type':'application/json','authorization':`Bearer ${key}`,'HTTP-Referer':site,'X-OpenRouter-Title':'Innova Emergency'},
+    body:JSON.stringify({
+      model,
+      messages:[{role:'system',content:'Responde exclusivamente con el objeto solicitado.'},{role:'user',content:prompt}],
+      response_format:{type:'json_schema',json_schema:{name:'emergency_triage',strict:true,schema}},
+      provider:{require_parameters:true},
+    }),
+    signal:AbortSignal.timeout(45000),
+  });
+  const raw=await r.text();
+  if(!r.ok)throw new Error(`OpenRouter HTTP ${r.status}: ${raw.slice(0,500)}`);
+  const payload=JSON.parse(raw);
+  const text=payload?.choices?.[0]?.message?.content||'';
+  const assessment=normalizeAssessment(parseJsonText(String(text)));
+  if(!assessment.summary)throw new Error('OpenRouter devolvió una respuesta incompleta');
+  return {assessment,provider:'openrouter',model};
+}
+
+async function runProviders(input:{category:string;description:string;dangerFlags:string[];images:any[]}):Promise<ProviderResult>{
+  const attempts:Array<[string,()=>Promise<ProviderResult>]>=[
+    ['Gemini',()=>callGemini(input)],
+    ['Groq',()=>callGroq(input)],
+    ['OpenRouter',()=>callOpenRouter(input)],
+  ];
+  const errors:string[]=[];
+  let configured=0;
+  for(const [name,fn] of attempts){
+    const keyName=name==='Gemini'?'GEMINI_API_KEY':name==='Groq'?'GROQ_API_KEY':'OPENROUTER_API_KEY';
+    if(!Deno.env.get(keyName))continue;
+    configured++;
+    try{return await fn();}catch(e){errors.push(`${name}: ${e instanceof Error?e.message:'error'}`);}
+  }
+  if(!configured)throw new Error('No hay proveedor IA configurado. Agrega GEMINI_API_KEY, GROQ_API_KEY u OPENROUTER_API_KEY en Supabase Edge Function Secrets.');
+  throw new Error(`Todos los proveedores IA fallaron. ${errors.join(' || ').slice(0,1800)}`);
+}
+
+async function policyFor(sb:any,region:string,commune:string){
+  const {data:specific}=await sb.from('ai_agent_policies').select('*').eq('active',true).eq('region',region).eq('commune',commune).maybeSingle();
+  if(specific)return specific;
+  const {data:regional}=await sb.from('ai_agent_policies').select('*').eq('active',true).eq('region',region).is('commune',null).maybeSingle();
+  return regional||{auto_triage_enabled:true,min_confidence_auto:.9,max_severity_auto:3};
+}
+async function routeOrganizations(sb:any,incident:any,category:string){
+  const kinds=categoryKinds[category]||categoryKinds.other;
+  let q=sb.from('organizations').select('id,name,kind,commune').eq('active',true).eq('region',incident.region||'Antofagasta').in('kind',kinds).limit(30);
+  if(incident.commune)q=q.or(`commune.eq.${incident.commune},kind.eq.emergency_management`);
+  const {data}=await q;
+  return (data||[]).sort((a:any,b:any)=>kinds.indexOf(a.kind)-kinds.indexOf(b.kind)).slice(0,10);
+}
 
 async function analyzeIncident(sb:any,incidentId:string,actor:any=null,preferredReportId:string|null=null){
- const {data:incident}=await sb.from('incidents').select('*').eq('id',incidentId).single();if(!incident)throw new Error('Incidente no encontrado');
- const {data:reports}=await sb.from('reports').select('*').eq('incident_id',incidentId).order('received_at',{ascending:false}).limit(10);const flags=new Set<string>();for(const r of reports||[]){if(r.danger_fire)flags.add('fuego/humo');if(r.danger_injured)flags.add('personas heridas');if(r.danger_trapped)flags.add('personas atrapadas');if(r.danger_electric)flags.add('peligro eléctrico');if(r.road_blocked)flags.add('vía bloqueada')}
- const description=[incident.description_private,...(reports||[]).map((x:any)=>x.description)].filter(Boolean).join('\n').slice(0,10000);const images=await loadImages(sb,incidentId);
- let result:any;try{result=await callGemini({category:incident.category||'other',description,dangerFlags:[...flags],images})}catch(error){const message=error instanceof Error?error.message:'Fallo de Gemini';await sb.from('ai_agent_runs').insert({incident_id:incidentId,report_id:preferredReportId||reports?.[0]?.id||null,model:Deno.env.get('GEMINI_MODEL')||'gemini-3.6-flash',status:'failed',decision:'human_review',requires_human:true,reason:message,completed_at:new Date().toISOString()});throw error}
- const ai=result.assessment,policy=await policyFor(sb,incident.region||'Antofagasta',incident.commune||'Antofagasta');const danger=flags.has('fuego/humo')||flags.has('personas heridas')||flags.has('personas atrapadas')||flags.has('peligro eléctrico');const conflict=incident.category!=='other'&&ai.category!==incident.category;const requiresHuman=Boolean(ai.needsHumanReview||ai.inconsistencies.length||danger||conflict||ai.severity>=4||ai.severity>Number(policy.max_severity_auto||3)||ai.confidence<Number(policy.min_confidence_auto||.9)||!policy.auto_triage_enabled);const decision=ai.severity>=4||danger?'urgent_human_review':requiresHuman?'human_review':'auto_triage';const routed=await routeOrganizations(sb,incident,ai.category);const recommended=[...new Set([...(ai.recommendedOrganizations||[]),...routed.map((o:any)=>o.name)])].slice(0,15);const now=new Date().toISOString();const safeSeverity=Math.max(Number(incident.severity||1),ai.severity);const patch:any={ai_category:ai.category,ai_severity:ai.severity,ai_summary:ai.summary,ai_confidence:ai.confidence,ai_reason:ai.reason,ai_recommended_organizations:recommended,ai_decision:decision,ai_requires_human:requiresHuman,ai_processed_at:now,ai_last_agent_at:now};if(decision==='auto_triage'&&policy.auto_triage_enabled){patch.severity=safeSeverity;if(incident.category==='other'||ai.confidence>=.96)patch.category=ai.category;if(incident.status==='received')patch.status='reviewing'}if(decision==='urgent_human_review'&&!['notified','responding','resolved','discarded'].includes(incident.status)){patch.status='critical';patch.severity=Math.max(4,safeSeverity)}
- const {error:updateError}=await sb.from('incidents').update(patch).eq('id',incidentId);if(updateError)throw updateError;const {data:run,error:runError}=await sb.from('ai_agent_runs').insert({incident_id:incidentId,report_id:preferredReportId||reports?.[0]?.id||null,model:result.model,status:'completed',decision,suggested_category:ai.category,suggested_severity:ai.severity,confidence:ai.confidence,requires_human:requiresHuman,reason:ai.reason,recommended_organizations:recommended,completed_at:now}).select('id').single();if(runError)throw runError;const actions:any[]=[{run_id:run.id,incident_id:incidentId,action_type:'classification',status:'executed',payload:{suggestedCategory:ai.category,severity:ai.severity,confidence:ai.confidence,inconsistencies:ai.inconsistencies}}];if(requiresHuman)actions.push({run_id:run.id,incident_id:incidentId,action_type:'human_review',status:'requires_approval',payload:{priority:decision==='urgent_human_review'?'urgent':'normal',reason:ai.reason}});for(const org of routed)actions.push({run_id:run.id,incident_id:incidentId,organization_id:org.id,action_type:'routing',status:'suggested',payload:{organization:org.name,kind:org.kind,commune:org.commune}});if(actions.length)await sb.from('ai_agent_actions').insert(actions);if(actor)await sb.from('audit_log').insert({actor_user_id:actor.user.id,actor_role:actor.profile.role,action:'ai_assessment_requested',entity_type:'incident',entity_id:incidentId,metadata:{model:result.model,images_analyzed:images.length,decision,requires_human}}).catch(()=>{});return {incidentId,decision,requiresHuman,model:result.model,imagesAnalyzed:images.length,assessment:patch}}
+  const {data:incident}=await sb.from('incidents').select('*').eq('id',incidentId).single();
+  if(!incident)throw new Error('Incidente no encontrado');
+  const {data:reports}=await sb.from('reports').select('*').eq('incident_id',incidentId).order('received_at',{ascending:false}).limit(10);
+  const flags=new Set<string>();
+  for(const r of reports||[]){
+    if(r.danger_fire)flags.add('fuego/humo'); if(r.danger_injured)flags.add('personas heridas'); if(r.danger_trapped)flags.add('personas atrapadas'); if(r.danger_electric)flags.add('peligro eléctrico'); if(r.road_blocked)flags.add('vía bloqueada');
+  }
+  const description=[incident.description_private,...(reports||[]).map((x:any)=>x.description)].filter(Boolean).join('\n').slice(0,10000);
+  const images=await loadImages(sb,incidentId);
+  let result:ProviderResult;
+  try{
+    result=await runProviders({category:incident.category||'other',description,dangerFlags:[...flags],images});
+  }catch(error){
+    const message=error instanceof Error?error.message:'Fallo del agente IA';
+    await sb.from('ai_agent_runs').insert({incident_id:incidentId,report_id:preferredReportId||reports?.[0]?.id||null,model:'fallback-chain',status:'failed',decision:'human_review',requires_human:true,reason:message,completed_at:new Date().toISOString()});
+    throw error;
+  }
+  const ai=result.assessment;
+  const policy=await policyFor(sb,incident.region||'Antofagasta',incident.commune||'Antofagasta');
+  const danger=flags.has('fuego/humo')||flags.has('personas heridas')||flags.has('personas atrapadas')||flags.has('peligro eléctrico');
+  const conflict=incident.category!=='other'&&ai.category!==incident.category;
+  const requiresHuman=Boolean(ai.needsHumanReview||ai.inconsistencies.length||danger||conflict||ai.severity>=4||ai.severity>Number(policy.max_severity_auto||3)||ai.confidence<Number(policy.min_confidence_auto||.9)||!policy.auto_triage_enabled);
+  const decision=ai.severity>=4||danger?'urgent_human_review':requiresHuman?'human_review':'auto_triage';
+  const routed=await routeOrganizations(sb,incident,ai.category);
+  const recommended=[...new Set([...(ai.recommendedOrganizations||[]),...routed.map((o:any)=>o.name)])].slice(0,15);
+  const now=new Date().toISOString();
+  const safeSeverity=Math.max(Number(incident.severity||1),ai.severity);
+  const patch:any={ai_category:ai.category,ai_severity:ai.severity,ai_summary:ai.summary,ai_confidence:ai.confidence,ai_reason:ai.reason,ai_recommended_organizations:recommended,ai_decision:decision,ai_requires_human:requiresHuman,ai_processed_at:now,ai_last_agent_at:now};
+  if(decision==='auto_triage'&&policy.auto_triage_enabled){patch.severity=safeSeverity;if(incident.category==='other'||ai.confidence>=.96)patch.category=ai.category;if(incident.status==='received')patch.status='reviewing';}
+  if(decision==='urgent_human_review'&&!['notified','responding','resolved','discarded'].includes(incident.status)){patch.status='critical';patch.severity=Math.max(4,safeSeverity);}
+  const {error:updateError}=await sb.from('incidents').update(patch).eq('id',incidentId); if(updateError)throw updateError;
+  const modelLabel=`${result.provider}:${result.model}`;
+  const {data:run,error:runError}=await sb.from('ai_agent_runs').insert({incident_id:incidentId,report_id:preferredReportId||reports?.[0]?.id||null,model:modelLabel,status:'completed',decision,suggested_category:ai.category,suggested_severity:ai.severity,confidence:ai.confidence,requires_human:requiresHuman,reason:ai.reason,recommended_organizations:recommended,completed_at:now}).select('id').single();
+  if(runError)throw runError;
+  const actions:any[]=[{run_id:run.id,incident_id:incidentId,action_type:'classification',status:'executed',payload:{provider:result.provider,model:result.model,suggestedCategory:ai.category,severity:ai.severity,confidence:ai.confidence,inconsistencies:ai.inconsistencies}}];
+  if(requiresHuman)actions.push({run_id:run.id,incident_id:incidentId,action_type:'human_review',status:'requires_approval',payload:{priority:decision==='urgent_human_review'?'urgent':'normal',reason:ai.reason}});
+  for(const org of routed)actions.push({run_id:run.id,incident_id:incidentId,organization_id:org.id,action_type:'routing',status:'suggested',payload:{organization:org.name,kind:org.kind,commune:org.commune}});
+  if(actions.length)await sb.from('ai_agent_actions').insert(actions);
+  if(actor){try{await sb.from('audit_log').insert({actor_user_id:actor.user.id,actor_role:actor.profile.role,action:'ai_assessment_requested',entity_type:'incident',entity_id:incidentId,metadata:{provider:result.provider,model:result.model,images_analyzed:images.length,decision,requires_human}});}catch{}}
+  return {incidentId,decision,requiresHuman,provider:result.provider,model:result.model,imagesAnalyzed:images.length,assessment:patch};
+}
 
-Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:cors});if(req.method==='GET')return json({ok:true,configured:Boolean(Deno.env.get('GEMINI_API_KEY')),model:Deno.env.get('GEMINI_MODEL')||'gemini-3.6-flash'});if(req.method!=='POST')return json({error:'Método no permitido'},405);const sb=db();try{const body=await req.json();const mode=String(body.mode||'');if(mode==='report'){const report=await verifyReport(sb,String(body.reportId||''),String(body.secret||''));if(!report)return json({error:'Credencial de reporte inválida'},403);const result=await analyzeIncident(sb,String(report.incident_id),null,String(report.id));return json({ok:true,...result})}const staff=await authenticateStaff(sb,req);if(!staff)return json({error:'No autorizado'},401);if(mode==='staff-analyze'){const incidentId=String(body.incidentId||'');if(!validUuid(incidentId))return json({error:'Incidente inválido'},400);const result=await analyzeIncident(sb,incidentId,staff);return json({ok:true,...result})}if(mode==='process-pending'){const limit=Math.max(1,Math.min(10,Number(body.limit)||5));const {data}=await sb.from('incidents').select('id,public_code').in('status',ACTIVE).is('ai_processed_at',null).order('last_reported_at',{ascending:false}).limit(limit);let completed=0,failed=0;const results:any[]=[];for(const item of data||[]){try{const r=await analyzeIncident(sb,item.id,staff);completed++;results.push({publicCode:item.public_code,ok:true,decision:r.decision})}catch(e){failed++;results.push({publicCode:item.public_code,ok:false,error:e instanceof Error?e.message:'Error'})}}return json({ok:true,completed,failed,results})}return json({error:'Modo inválido'},400)}catch(error){console.error('agent-worker',error);return json({error:error instanceof Error?error.message:'No fue posible ejecutar el agente'},500)}});
+Deno.serve(async(req:Request)=>{
+  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
+  if(req.method==='GET'){
+    const providers={gemini:Boolean(Deno.env.get('GEMINI_API_KEY')),groq:Boolean(Deno.env.get('GROQ_API_KEY')),openrouter:Boolean(Deno.env.get('OPENROUTER_API_KEY'))};
+    return json({ok:true,configured:Object.values(providers).some(Boolean),providers,models:{gemini:Deno.env.get('GEMINI_MODEL')||'gemini-3.6-flash',groq:Deno.env.get('GROQ_MODEL')||'openai/gpt-oss-20b',openrouter:Deno.env.get('OPENROUTER_MODEL')||'openai/gpt-oss-20b'}});
+  }
+  if(req.method!=='POST')return json({error:'Método no permitido'},405);
+  const sb=db();
+  try{
+    const body=await req.json(); const mode=String(body.mode||'');
+    if(mode==='report'){
+      const report=await verifyReport(sb,String(body.reportId||''),String(body.secret||''));
+      if(!report)return json({error:'Credencial de reporte inválida'},403);
+      const result=await analyzeIncident(sb,String(report.incident_id),null,String(report.id));
+      return json({ok:true,...result});
+    }
+    const staff=await authenticateStaff(sb,req); if(!staff)return json({error:'No autorizado'},401);
+    if(mode==='staff-analyze'){
+      const incidentId=String(body.incidentId||''); if(!validUuid(incidentId))return json({error:'Incidente inválido'},400);
+      const result=await analyzeIncident(sb,incidentId,staff); return json({ok:true,...result});
+    }
+    if(mode==='process-pending'){
+      const limit=Math.max(1,Math.min(10,Number(body.limit)||5));
+      const {data}=await sb.from('incidents').select('id,public_code').in('status',ACTIVE).is('ai_processed_at',null).order('last_reported_at',{ascending:false}).limit(limit);
+      let completed=0,failed=0; const results:any[]=[];
+      for(const item of data||[]){try{const r=await analyzeIncident(sb,item.id,staff);completed++;results.push({publicCode:item.public_code,ok:true,provider:r.provider,decision:r.decision});}catch(e){failed++;results.push({publicCode:item.public_code,ok:false,error:e instanceof Error?e.message:'Error'});}}
+      return json({ok:true,completed,failed,results});
+    }
+    return json({error:'Modo inválido'},400);
+  }catch(error){console.error('agent-worker',error);return json({error:error instanceof Error?error.message:'No fue posible ejecutar el agente'},500);}
+});
