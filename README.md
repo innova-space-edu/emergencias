@@ -4,6 +4,15 @@
 
 > **Aviso operacional:** esta plataforma complementa la comunicación ciudadana. **No reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED**, y no constituye por sí sola una orden oficial de despacho.
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16.2.12-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20PostGIS-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/AI-Gemini%20%E2%86%92%20Groq%20%E2%86%92%20OpenRouter-7C3AED?style=for-the-badge" alt="AI" />
+  <img src="https://img.shields.io/badge/Resend-Email-111827?style=for-the-badge&logo=resend&logoColor=white" alt="Resend" />
+  <img src="https://img.shields.io/badge/Leaflet-Mapas-199900?style=for-the-badge&logo=leaflet&logoColor=white" alt="Leaflet" />
+  <img src="https://img.shields.io/badge/Vercel-Deploy-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
+</p>
+
 ---
 
 ## Objetivo
@@ -26,46 +35,25 @@ La arquitectura parte en la **Región de Antofagasta** y está preparada para es
 
 ---
 
-## Stack principal
+## Stack técnico
 
-<table>
-<tr>
-<td align="center" width="33%">
-<img src="https://img.shields.io/badge/Next.js-16.2.12-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js"/><br/>
-<b>Aplicación y API</b><br/>
-<sub>App Router, React 19, TypeScript y Node.js 22.</sub>
-</td>
-<td align="center" width="33%">
-<img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20PostGIS-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase"/><br/>
-<b>Backend operacional</b><br/>
-<sub>Auth, RLS, Storage privado, SQL y Edge Functions.</sub>
-</td>
-<td align="center" width="33%">
-<img src="https://img.shields.io/badge/AI-Gemini%20%E2%86%92%20Groq%20%E2%86%92%20OpenRouter-7C3AED?style=for-the-badge" alt="AI"/><br/>
-<b>Agente IA resiliente</b><br/>
-<sub>Triage, prioridad, clasificación y respaldo multi-proveedor.</sub>
-</td>
-</tr>
-<tr>
-<td align="center">
-<img src="https://img.shields.io/badge/Resend-Email-111827?style=for-the-badge&logo=resend&logoColor=white" alt="Resend"/><br/>
-<b>Correo transaccional</b><br/>
-<sub>Alertas, canalización y auditoría de entregas.</sub>
-</td>
-<td align="center">
-<img src="https://img.shields.io/badge/Leaflet-Mapas-199900?style=for-the-badge&logo=leaflet&logoColor=white" alt="Leaflet"/><br/>
-<b>Cartografía</b><br/>
-<sub>Mapa público y operativo responsive.</sub>
-</td>
-<td align="center">
-<img src="https://img.shields.io/badge/Vercel%20%2B%20GitHub-Deploy%20%2B%20CI-2563EB?style=for-the-badge&logo=vercel&logoColor=white" alt="Deploy"/><br/>
-<b>Entrega continua</b><br/>
-<sub>Vercel para producción y GitHub Actions para validación.</sub>
-</td>
-</tr>
-</table>
-
-Tecnologías complementarias: PWA, Service Worker, IndexedDB, MapLibre GL, Supabase SSR y almacenamiento privado de evidencia.
+| Tecnología | Función principal | Uso en Innova Emergency |
+|---|---|---|
+| **Next.js 16.2.12** | Aplicación web y API | App Router, rutas públicas/privadas, API Routes y lógica backend |
+| **React 19.2.8** | Interfaz | Componentes, formularios, Dashboard y Centro de operaciones |
+| **TypeScript 6.0.3** | Tipado | Seguridad de tipos en frontend y backend |
+| **Node.js 22.x** | Runtime | Build y ejecución de Next.js |
+| **Supabase** | Backend operacional | PostgreSQL, PostGIS, Auth, RLS, Storage y Edge Functions |
+| **Leaflet 1.9.4** | Cartografía principal | Mapa público, mapa operativo, GPS y marcadores |
+| **MapLibre GL** | Cartografía complementaria | Funciones cartográficas avanzadas y estrategia futura |
+| **IndexedDB / idb** | Persistencia local | Cola offline y almacenamiento temporal de reportes/evidencia |
+| **Service Worker / PWA** | Offline-first | Reintentos y funcionamiento con conectividad débil |
+| **Gemini** | IA principal | Triage, clasificación, prioridad y análisis multimodal |
+| **Groq** | Respaldo IA | Fallback de clasificación y triage basado en texto |
+| **OpenRouter** | Segundo respaldo IA | Fallback adicional de modelos compatibles |
+| **Resend API** | Correo transaccional | Alertas, canalización, copia al administrador y auditoría |
+| **GitHub Actions** | Integración continua | Build y validación TypeScript |
+| **Vercel** | Hosting | Producción de la aplicación Next.js |
 
 ---
 
@@ -159,6 +147,16 @@ El formulario ciudadano puede registrar:
 
 La evidencia multimedia es **privada**.
 
+### Números oficiales de emergencia en Chile
+
+| Número | Servicio |
+|---|---|
+| **131** | SAMU / Ambulancia |
+| **132** | Bomberos |
+| **133** | Carabineros de Chile |
+
+La plataforma muestra estos números al ciudadano cuando existe peligro inmediato y mantiene el aviso de que Innova Emergency no reemplaza los canales oficiales.
+
 ---
 
 ## Mapa público
@@ -185,7 +183,7 @@ La prioridad 1–5 se mantiene como dato separado del estado.
 
 ### Alta carga
 
-Las listas pueden organizarse así:
+Las listas se pueden organizar así:
 
 ```text
 HORA
@@ -403,41 +401,15 @@ Orden de proveedores:
 Revisión humana + error registrado
 ```
 
-### Gemini
+### Proveedores
 
-Proveedor principal para análisis multimodal. Puede recibir las imágenes privadas seleccionadas por el backend.
+| Proveedor | Rol | Modelo inicial |
+|---|---|---|
+| **Gemini** | Principal, multimodal | `gemini-3.6-flash` |
+| **Groq** | Primer fallback de texto | `openai/gpt-oss-20b` |
+| **OpenRouter** | Segundo fallback | `openai/gpt-oss-20b` |
 
-Modelo por defecto:
-
-```text
-gemini-3.6-flash
-```
-
-### Groq
-
-Primer respaldo para triage rápido basado en texto y metadatos.
-
-Modelo configurable; valor inicial:
-
-```text
-openai/gpt-oss-20b
-```
-
-### OpenRouter
-
-Segundo respaldo. Permite enrutar solicitudes a modelos compatibles mediante una API única.
-
-Modelo configurable; valor inicial:
-
-```text
-openai/gpt-oss-20b
-```
-
-### Evidencia y fallback
-
-Cuando Gemini no está disponible y el worker cae a un proveedor de respaldo de texto, el prompt indica explícitamente que **no puede afirmar nada sobre el contenido visual de las imágenes que no recibió**. Puede seguir clasificando usando descripción, categoría y riesgos marcados.
-
-### Registro del proveedor
+Cuando Gemini no está disponible y el worker cae a un proveedor de respaldo de texto, el sistema no debe afirmar nada sobre imágenes que ese proveedor no recibió.
 
 Cada ejecución completada guarda el proveedor/modelo utilizado, por ejemplo:
 
@@ -447,7 +419,7 @@ groq:openai/gpt-oss-20b
 openrouter:openai/gpt-oss-20b
 ```
 
-Si todos fallan, se registra una ejecución `failed` con el motivo para que la bandeja no quede silenciosamente en cero.
+Si todos fallan, se registra una ejecución `failed` con el motivo.
 
 ## Bandeja del Agente
 
@@ -647,21 +619,12 @@ supabase/functions/agent-worker
 supabase/functions/emergency-email-broadcast
 ```
 
-### `emergency-gateway`
-
-Recepción anónima, idempotencia, rate limiting, deduplicación, incidentes, reportes, mapa público sanitizado y evidencia.
-
-### `agent-worker`
-
-Motor actual del agente IA, procesamiento de pendientes y fallback multi-proveedor.
-
-### `agent-gateway`
-
-Infraestructura previa/auxiliar para reglas de agente, routing y acciones controladas.
-
-### `emergency-email-broadcast`
-
-Alertas automáticas internas y registro Resend.
+| Función | Responsabilidad |
+|---|---|
+| `emergency-gateway` | Recepción anónima, idempotencia, rate limiting, deduplicación, incidentes, reportes y evidencia |
+| `agent-worker` | Motor actual del agente IA, procesamiento de pendientes y fallback multi-proveedor |
+| `agent-gateway` | Infraestructura auxiliar de reglas, routing y acciones controladas |
+| `emergency-email-broadcast` | Alertas automáticas internas y registro Resend |
 
 ---
 
@@ -689,24 +652,26 @@ Características:
 
 PostgreSQL + PostGIS.
 
-Principales dominios:
+Principales tablas:
 
-- `profiles`;
-- `incidents`;
-- `reports`;
-- `evidence`;
-- `organizations`;
-- `organization_channels`;
-- `organization_coverage`;
-- `territorial_localities`;
-- `incident_notifications`;
-- `access_requests`;
-- `audit_log`;
-- `rate_limit_events`;
-- `ai_agent_runs`;
-- `ai_agent_actions`;
-- `ai_agent_policies`;
-- `email_delivery_log`.
+| Tabla | Uso |
+|---|---|
+| `profiles` | Perfiles y roles institucionales |
+| `incidents` | Emergencias consolidadas |
+| `reports` | Reportes ciudadanos individuales |
+| `evidence` | Fotografías y videos privados |
+| `organizations` | Organismos, radios y entidades |
+| `organization_channels` | Correos, teléfonos, redes y otros canales |
+| `organization_coverage` | Cobertura territorial |
+| `territorial_localities` | Catálogo de localidades |
+| `incident_notifications` | Canalizaciones/notificaciones |
+| `access_requests` | Solicitudes de acceso |
+| `audit_log` | Auditoría administrativa |
+| `rate_limit_events` | Control de frecuencia |
+| `ai_agent_runs` | Ejecuciones IA |
+| `ai_agent_actions` | Acciones sugeridas/ejecutadas |
+| `ai_agent_policies` | Políticas de automatización |
+| `email_delivery_log` | Auditoría de correo |
 
 ---
 
@@ -716,11 +681,11 @@ Principales dominios:
 - Auth de Supabase para cuentas institucionales.
 - No existe signup público.
 - Storage privado.
-- secretos fuera del repositorio;
-- service role nunca en el navegador;
-- correo y acciones críticas auditadas;
-- evidencia separada del mapa público;
-- agente IA con revisión humana para casos de riesgo.
+- Secretos fuera del repositorio.
+- Service role nunca en el navegador.
+- Correo y acciones críticas auditadas.
+- Evidencia separada del mapa público.
+- Agente IA con revisión humana para casos de riesgo.
 
 Nunca exponer:
 
