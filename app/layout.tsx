@@ -7,6 +7,7 @@ import './mobile-responsive.css';
 import './operations-mobile.css';
 import './directory.css';
 import './agent.css';
+import './agent-inbox.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import 'leaflet/dist/leaflet.css';
 import ServiceWorkerRegister from '@/components/service-worker-register';
