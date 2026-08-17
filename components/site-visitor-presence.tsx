@@ -27,7 +27,7 @@ export default function SiteVisitorPresence(){
     const channel=s.channel(CHANNEL,{config:{presence:{key}}});
     let subscribed=false;
 
-    channel.subscribe(async status=>{
+    channel.subscribe(async (status:string)=>{
       if(status==='SUBSCRIBED'){
         subscribed=true;
         await channel.track({online_at:new Date().toISOString()});

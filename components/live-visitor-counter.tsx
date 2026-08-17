@@ -25,7 +25,7 @@ export default function LiveVisitorCounter(){
       const state=channel.presenceState() as Record<string,unknown[]>;
       setCount(Object.keys(state).length);
     };
-    channel.on('presence',{event:'sync'},sync).subscribe(status=>{
+    channel.on('presence',{event:'sync'},sync).subscribe((status:string)=>{
       if(status==='SUBSCRIBED'){
         setConnected(true);
         sync();
