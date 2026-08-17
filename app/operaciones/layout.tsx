@@ -10,6 +10,7 @@ export default async function OperationsLayout({ children }: { children: React.R
     <Link href="/operaciones/agente">Agente IA</Link>
     <Link href="/operaciones/historial">Historial general</Link>
     <Link href="/operaciones/directorio">Directorio territorial</Link>
+    {profile.role === 'admin' ? <Link href="/operaciones/correos">Alertas por correo</Link> : null}
     {profile.role === 'admin' ? <Link href="/operaciones/accesos">Solicitudes de acceso</Link> : null}
     {profile.role === 'admin' ? <Link href="/operaciones/organizaciones">Organizaciones</Link> : null}
     <Link href="/mapa">Vista pública</Link>
