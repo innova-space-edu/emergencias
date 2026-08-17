@@ -5,12 +5,32 @@ import { sendInstitutionalMail } from '@/lib/email';
 export const runtime='nodejs';
 const ALLOWED_CHANNELS=new Set(['email','sms','whatsapp','web','radio','manual','phone','facebook','instagram','x','zello']);
 const DISCLAIMER='Esta comunicación canaliza información ciudadana y no confirma la veracidad del hecho ni constituye una orden de despacho. Innova Emergency complementa los canales oficiales y no reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED.';
+
+function norm(v:string){return v.trim().toLowerCase()}
+
 export async function POST(req:NextRequest){
   const staff=await getApiStaff();if(!staff)return NextResponse.json({error:'No autorizado'},{status:401});
   try{
-    const body=await req.json();const incidentId=String(body.incidentId||''),organizationId=body.organizationId?String(body.organizationId):null,organizationName=String(body.organizationName||'').slice(0,160),channel=String(body.channel||'manual'),destination=String(body.destination||'').slice(0,400);
+    const body=await req.json();const incidentId=String(body.incidentId||''),organizationId=body.organizationId?String(body.organizationId):null,requestedName=String(body.organizationName||'').slice(0,160),channel=String(body.channel||'manual');let destination=String(body.destination||'').slice(0,400);let organizationName=requestedName;
     if(!incidentId||!organizationName||!ALLOWED_CHANNELS.has(channel))return NextResponse.json({error:'Datos incompletos'},{status:400});
     const s=await getServerSupabase();const {data:incident}=await s.from('incidents').select('public_code,title,category,public_summary,address_approx,commune,locality,latitude,longitude,status,severity').eq('id',incidentId).single();if(!incident)return NextResponse.json({error:'Incidente no encontrado'},{status:404});
+
+    if(organizationId){
+      const {data:org}=await s.from('organizations').select('id,name,email,phone,website,radio_frequency,active').eq('id',organizationId).eq('active',true).maybeSingle();
+      if(!org)return NextResponse.json({error:'Organismo no registrado o inactivo'},{status:400});
+      organizationName=org.name;
+      const {data:registered}=await s.from('organization_channels').select('channel_type,value').eq('organization_id',organizationId).eq('active',true);
+      const values=new Set<string>((registered||[]).filter((x:any)=>x.channel_type===channel).map((x:any)=>norm(String(x.value||''))));
+      if(channel==='email'&&org.email)values.add(norm(org.email));
+      if(channel==='phone'&&org.phone)values.add(norm(org.phone));
+      if(channel==='web'&&org.website)values.add(norm(org.website));
+      if(channel==='radio'&&org.radio_frequency)values.add(norm(org.radio_frequency));
+      if(channel!=='manual'&&destination&&values.size&&!values.has(norm(destination))){
+        return NextResponse.json({error:'El destino no coincide con un canal activo registrado para este organismo'},{status:400});
+      }
+      if(channel==='email'&&values.size===0)return NextResponse.json({error:'Este organismo no tiene correo registrado'},{status:400});
+    }
+
     const admin=process.env.ADMIN_EMAIL||process.env.EMAIL_SEND_TO||'contacto@innova-space-edu.cl';
     const cc=channel==='email'&&destination.toLowerCase()!==admin.toLowerCase()?[admin]:[];
     const defaultSubject=`Alerta informativa ${incident.public_code} — Innova Emergency`;
