@@ -7,6 +7,7 @@ export default async function OperationsLayout({ children }: { children: React.R
   const { profile } = await requireStaff();
   const links = <>
     {profile.role === 'admin' ? <Link href="/operaciones/admin">Dashboard administrador</Link> : null}
+    {profile.role === 'admin' ? <Link href="/operaciones/admin/reportes">Reportes ciudadanos</Link> : null}
     <Link href="/operaciones">Emergencias activas</Link>
     <Link href="/operaciones/agente">Agente IA</Link>
     <Link href="/operaciones/historial">Historial general</Link>
