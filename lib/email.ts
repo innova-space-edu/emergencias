@@ -14,5 +14,5 @@ export async function verifyInstitutionalMail(){
 
 export async function sendInstitutionalMail(args:{to:string;subject:string;text:string;html?:string}) {
   const {user,transporter}=getTransporter();
-  return transporter.sendMail({ from:`Innova Emergencias <${user}>`, to:args.to, subject:args.subject, text:args.text, html:args.html });
+  return transporter.sendMail({ from:`Innova Emergency <${user}>`, to:args.to, subject:args.subject, text:args.text, html:args.html });
 }
