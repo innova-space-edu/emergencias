@@ -3,6 +3,7 @@ import Link from 'next/link';
 import './globals.css';
 import './compat.css';
 import './operations-extra.css';
+import './mobile-responsive.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import 'leaflet/dist/leaflet.css';
 import ServiceWorkerRegister from '@/components/service-worker-register';
