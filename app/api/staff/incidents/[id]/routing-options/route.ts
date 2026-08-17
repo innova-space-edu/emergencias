@@ -30,12 +30,12 @@ export async function GET(_:Request,{params}:{params:Promise<{id:string}>}){
       const {data}=await s.from('organization_coverage').select('organization_id,priority').eq('active',true).in('locality_id',localityIds).order('priority',{ascending:true});
       organizationIds=[...new Set((data||[]).map((x:any)=>x.organization_id))] as string[];
     }
-    let orgQuery=s.from('organizations').select('id,name,kind,region,commune,email,phone,website,radio_frequency,active').eq('active',true).eq('region',region).in('kind',ALLOWED_KINDS).order('kind').order('name');
+    let orgQuery=s.from('organizations').select('id,name,kind,region,commune,email,phone,website,radio_frequency,source_url,verified_at,notes,active').eq('active',true).eq('region',region).in('kind',ALLOWED_KINDS).order('kind').order('name');
     if(organizationIds.length)orgQuery=orgQuery.in('id',organizationIds);else orgQuery=orgQuery.eq('commune',commune);
     const {data:orgs,error:orgError}=await orgQuery;if(orgError)throw orgError;
     const ids=(orgs||[]).map((o:any)=>o.id);
     let channels:any[]=[];
-    if(ids.length){const {data,error}=await s.from('organization_channels').select('id,organization_id,channel_type,label,value,direct_send,automation_enabled,is_primary,verified_at,active').eq('active',true).in('organization_id',ids).order('is_primary',{ascending:false});if(error)throw error;channels=data||[]}
+    if(ids.length){const {data,error}=await s.from('organization_channels').select('id,organization_id,channel_type,label,value,direct_send,automation_enabled,is_primary,verified_at,source_url,notes,active').eq('active',true).in('organization_id',ids).order('is_primary',{ascending:false});if(error)throw error;channels=data||[]}
     const rows=(orgs||[]).map((o:any)=>({...o,channels:channels.filter((c:any)=>c.organization_id===o.id)})).filter((o:any)=>o.channels.length||o.email||o.phone||o.website||o.radio_frequency);
     const {data:emailHistory}=await s.from('incident_notifications').select('id,organization_name,destination,status,provider_message_id,sent_at,created_at,failure_reason,subject,message_text,cc_recipients').eq('incident_id',id).eq('channel','email').order('created_at',{ascending:false}).limit(10);
     return NextResponse.json({ok:true,scope,region,commune,locality:locality||null,incident,organizations:rows,operatorEmail:staff.user.email||staff.profile.email||null,adminEmail:process.env.ADMIN_EMAIL||process.env.EMAIL_SEND_TO||'contacto@innova-space-edu.cl',emailHistory:emailHistory||[]});
