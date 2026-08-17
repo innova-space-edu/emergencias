@@ -46,6 +46,7 @@ async function notifyStaff(sb:any,reportId:string,secret:string){
 }
 
 Deno.serve(async(req:Request)=>{
+  if(req.method==='GET')return json({ok:true,provider:'resend',configured:Boolean(Deno.env.get('RESEND_API_KEY')),fromConfigured:Boolean(Deno.env.get('EMAIL_FROM'))});
   if(req.method!=='POST')return json({error:'Método no permitido'},405);
   try{
     const body=await req.json(),reportId=String(body.reportId||''),secret=String(body.secret||'');
