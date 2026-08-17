@@ -17,7 +17,7 @@ export async function GET(){
   const coreConfigured=Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL&&process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
   const payload={
     ok:coreConfigured&&gateway,
-    service:'innova-emergencias',
+    service:'innova-emergency',
     timestamp:new Date().toISOString(),
     checks:{
       app:true,
@@ -25,7 +25,8 @@ export async function GET(){
       emergencyGateway:gateway,
       gatewayLatencyMs,
       aiConfigured:Boolean(process.env.GEMINI_API_KEY),
-      mailConfigured:Boolean(process.env.GMAIL_USER&&process.env.GMAIL_PASS),
+      mailConfigured:Boolean(process.env.RESEND_API_KEY&&(process.env.EMAIL_FROM||'contacto@innova-space-edu.cl')),
+      mailProvider:'resend',
     },
     responseMs:Date.now()-started,
   };
