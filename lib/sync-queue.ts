@@ -3,6 +3,8 @@ import { deleteOfflineReport, getOfflineReports, updateOfflineReport } from '@/l
 import type { OfflineReport } from '@/lib/types';
 
 type SyncError = Error & { serverAccepted?: boolean; publicCode?: string };
+type PendingSyncResult = { id:string; publicCode:string|null; incidentId:string|null; serverAccepted:true };
+let pendingSyncPromise:Promise<PendingSyncResult[]>|null=null;
 
 function reportBody(report: OfflineReport) {
   return JSON.stringify({
@@ -57,7 +59,6 @@ export async function syncOneReport(report: OfflineReport) {
       report.acceptedAt = report.acceptedAt || new Date().toISOString();
       report.state = 'accepted';
       report.lastError = undefined;
-      // Esta escritura ocurre ANTES de subir evidencia. Desde aquí el incidente ya está recibido.
       await updateOfflineReport(report);
     }
 
@@ -88,7 +89,7 @@ export async function syncOneReport(report: OfflineReport) {
       await updateOfflineReport(report);
     }
 
-    const result={ publicCode: report.publicCode || null, incidentId: report.incidentId || null, serverAccepted:true };
+    const result={ publicCode: report.publicCode || null, incidentId: report.incidentId || null, serverAccepted:true as const };
     await deleteOfflineReport(report.id);
     return result;
   } catch (error) {
@@ -103,12 +104,21 @@ export async function syncOneReport(report: OfflineReport) {
   }
 }
 
-export async function syncPendingReports() {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
-  const reports = await getOfflineReports();
-  for (const report of reports) {
-    try { await syncOneReport(report); } catch { /* queda persistido para el siguiente intento */ }
-  }
+export function syncPendingReports():Promise<PendingSyncResult[]> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return Promise.resolve([]);
+  if (pendingSyncPromise) return pendingSyncPromise;
+  pendingSyncPromise=(async()=>{
+    const reports = await getOfflineReports();
+    const completed:PendingSyncResult[]=[];
+    for (const report of reports) {
+      try {
+        const result=await syncOneReport(report);
+        completed.push({id:report.id,publicCode:result.publicCode,incidentId:result.incidentId,serverAccepted:true});
+      } catch { /* queda persistido para el siguiente intento */ }
+    }
+    return completed;
+  })().finally(()=>{pendingSyncPromise=null});
+  return pendingSyncPromise;
 }
 
 export async function requestBackgroundSync() {
