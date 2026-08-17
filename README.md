@@ -1,57 +1,82 @@
 # Innova Emergency
 
-**Innova Emergency** es una plataforma ciudadana de canalización, clasificación, seguimiento y gestión de emergencias geolocalizadas, desarrollada por **Innova Space Education SpA**.
+**Innova Emergency** es una plataforma ciudadana de canalización, clasificación, seguimiento y gestión de emergencias geolocalizadas desarrollada por **Innova Space Education SpA**.
 
-> **Aviso importante:** esta plataforma complementa la comunicación ciudadana. **No reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED**, ni constituye por sí sola un despacho oficial de recursos de emergencia.
-
----
-
-## 1. Objetivo del proyecto
-
-La plataforma permite que cualquier persona pueda reportar de forma anónima una situación de emergencia usando ubicación GPS, descripción y evidencia multimedia. El sistema organiza los reportes, evita duplicados cuando corresponde, los muestra de forma sanitizada al público y entrega un **Centro de operaciones** privado para administrador, operadores y autoridades autorizadas.
-
-El proyecto está diseñado para crecer desde la Región de Antofagasta hacia otras regiones de Chile sin cambiar la arquitectura principal.
+> **Aviso operacional:** esta plataforma complementa la comunicación ciudadana. **No reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED**, y no constituye por sí sola una orden oficial de despacho.
 
 ---
 
-## 2. Stack actual
+## Objetivo
 
-- **Next.js 16.2.12** con App Router.
-- **React 19.2.8**.
-- **TypeScript 6.0.3**.
-- **Node.js 22.x**.
-- **Supabase** para PostgreSQL, PostGIS, Auth, Storage y Edge Functions.
-- **Leaflet 1.9.4** como motor cartográfico principal compatible con escritorio y móvil.
-- **MapLibre GL 5.12.0** disponible para funciones cartográficas avanzadas.
-- **IndexedDB (`idb`)** para cola offline del ciudadano.
-- **Service Worker / PWA** para funcionamiento offline-first.
-- **Gemini** para triage y análisis asistido.
-- **Resend API HTTP** para correo transaccional y alertas automáticas.
-- **GitHub Actions** para validar instalación, TypeScript y build de Next.js.
-- **Vercel** como hosting del frontend/backend Next.js.
+Permitir que cualquier persona pueda reportar una emergencia de forma rápida y anónima, incluso con conectividad deficiente, y entregar a usuarios autorizados herramientas para:
 
-Proyecto Supabase actual:
+- organizar reportes;
+- consolidar posibles duplicados;
+- priorizar casos;
+- visualizar incidentes geolocalizados;
+- analizar con IA;
+- derivar por localidad;
+- notificar organismos y radios;
+- registrar evidencia privada;
+- seguir el estado operativo;
+- cerrar casos;
+- conservar un historial completo y auditable.
 
-```text
-gwldnuekmwpwfnustqlu
-```
-
-URL pública utilizada durante desarrollo:
-
-```text
-https://emergencias-4yfs.vercel.app
-```
+La arquitectura parte en la **Región de Antofagasta** y está preparada para escalar territorialmente al resto de Chile.
 
 ---
 
-## 3. Arquitectura general
+## Stack principal
+
+<table>
+<tr>
+<td align="center" width="33%">
+<img src="https://img.shields.io/badge/Next.js-16.2.12-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js"/><br/>
+<b>Aplicación y API</b><br/>
+<sub>App Router, React 19, TypeScript y Node.js 22.</sub>
+</td>
+<td align="center" width="33%">
+<img src="https://img.shields.io/badge/Supabase-Postgres%20%2B%20PostGIS-3FCF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase"/><br/>
+<b>Backend operacional</b><br/>
+<sub>Auth, RLS, Storage privado, SQL y Edge Functions.</sub>
+</td>
+<td align="center" width="33%">
+<img src="https://img.shields.io/badge/AI-Gemini%20%E2%86%92%20Groq%20%E2%86%92%20OpenRouter-7C3AED?style=for-the-badge" alt="AI"/><br/>
+<b>Agente IA resiliente</b><br/>
+<sub>Triage, prioridad, clasificación y respaldo multi-proveedor.</sub>
+</td>
+</tr>
+<tr>
+<td align="center">
+<img src="https://img.shields.io/badge/Resend-Email-111827?style=for-the-badge&logo=resend&logoColor=white" alt="Resend"/><br/>
+<b>Correo transaccional</b><br/>
+<sub>Alertas, canalización y auditoría de entregas.</sub>
+</td>
+<td align="center">
+<img src="https://img.shields.io/badge/Leaflet-Mapas-199900?style=for-the-badge&logo=leaflet&logoColor=white" alt="Leaflet"/><br/>
+<b>Cartografía</b><br/>
+<sub>Mapa público y operativo responsive.</sub>
+</td>
+<td align="center">
+<img src="https://img.shields.io/badge/Vercel%20%2B%20GitHub-Deploy%20%2B%20CI-2563EB?style=for-the-badge&logo=vercel&logoColor=white" alt="Deploy"/><br/>
+<b>Entrega continua</b><br/>
+<sub>Vercel para producción y GitHub Actions para validación.</sub>
+</td>
+</tr>
+</table>
+
+Tecnologías complementarias: PWA, Service Worker, IndexedDB, MapLibre GL, Supabase SSR y almacenamiento privado de evidencia.
+
+---
+
+## Arquitectura general
 
 ```text
 CIUDADANO
    │
-   ├─ GPS / ubicación manual
-   ├─ descripción
    ├─ categoría
+   ├─ descripción
+   ├─ GPS / punto manual
    ├─ riesgos observados
    └─ fotos / videos
         │
@@ -71,59 +96,52 @@ emergency-gateway
         ├─ reporte ciudadano
         └─ URLs firmadas de evidencia
         │
-        ├───────────────────────────────┐
-        ▼                               ▼
-AGENTE IA                         ALERTAS INTERNAS
-agent-gateway                     emergency-email-broadcast
-Gemini                            Resend
-        │                               │
-        ▼                               ▼
-CENTRO DE OPERACIONES ←──── usuarios autorizados
-        │
-        ├─ dashboard administrador
-        ├─ emergencias activas
-        ├─ agente IA
-        ├─ historial
-        ├─ reportes ciudadanos
-        ├─ evidencia privada
-        ├─ directorio territorial
-        ├─ canalización / correo
-        ├─ alertas de correo
-        ├─ solicitudes de acceso
-        └─ organizaciones
+        ├──────────────────────────────┐
+        │                              │
+        ▼                              ▼
+AGENTE IA                        ALERTAS INTERNAS
+agent-worker                     emergency-email-broadcast
+        │                              │
+Gemini                           Resend
+  ↓                                   │
+Groq                                  │
+  ↓                                   │
+OpenRouter                            │
+        │                              │
+        └──────────────┬───────────────┘
+                       ▼
+               CENTRO DE OPERACIONES
+                       │
+       ┌───────────────┼────────────────┐
+       ▼               ▼                ▼
+ emergencias        directorio       historial
+ activas            territorial      y auditoría
 ```
 
 ---
 
-## 4. Flujo ciudadano
+## Flujo ciudadano
 
-1. El navegador genera un identificador local e idempotente antes del envío.
-2. El reporte se guarda primero en **IndexedDB**.
-3. Si hay conexión, se intenta sincronizar inmediatamente.
-4. Si la conexión falla, el reporte permanece en cola y se reintenta al volver Internet o al reabrir la aplicación.
-5. El JSON del reporte llega a `emergency-gateway`.
-6. El gateway valida, aplica límites de frecuencia y comprueba posibles duplicados.
-7. Se crea o reutiliza un incidente consolidado.
-8. Las fotografías y videos se cargan directamente al bucket privado mediante URLs firmadas.
-9. El ciudadano recibe un código tipo:
+1. El navegador genera un identificador local/idempotente.
+2. El reporte se guarda en IndexedDB antes de depender de la red.
+3. Si existe conexión, se sincroniza inmediatamente.
+4. Si falla la conexión, queda en cola para reintento.
+5. `emergency-gateway` valida el reporte.
+6. Se crea o reutiliza un incidente consolidado.
+7. Las evidencias se cargan con URLs firmadas al Storage privado.
+8. El ciudadano recibe un código `EMG-...` sin esperar a la IA.
+9. Después de responder al ciudadano se ejecutan tareas posteriores como IA y alertas internas.
+10. La evidencia local se elimina después de la confirmación del servidor.
 
-```text
-EMG-XXXXXXXXXX
-```
-
-10. La respuesta al ciudadano **no espera a Gemini ni al correo**.
-11. En segundo plano se pueden ejecutar el agente IA y las alertas internas.
-12. La evidencia local se elimina cuando el servidor confirma la recepción correctamente.
-
-Cerrar la pestaña no elimina intencionalmente un reporte pendiente de IndexedDB. Como en cualquier PWA, el sistema operativo/navegador puede eliminar almacenamiento local bajo determinadas condiciones extremas.
+Cerrar la pestaña no elimina intencionalmente un reporte pendiente de IndexedDB. El navegador o sistema operativo puede, en circunstancias extremas, limpiar almacenamiento local.
 
 ---
 
-## 5. Reporte de emergencia
+## Reporte de emergencia
 
-El formulario ciudadano permite registrar, entre otros datos:
+El formulario ciudadano puede registrar:
 
-- categoría o tipo de emergencia;
+- categoría;
 - descripción;
 - Región;
 - comuna/ciudad;
@@ -139,21 +157,21 @@ El formulario ciudadano permite registrar, entre otros datos:
 - fotografías;
 - videos breves.
 
-La evidencia multimedia es **privada** y no se publica en el mapa ciudadano.
+La evidencia multimedia es **privada**.
 
 ---
 
-## 6. Mapa público
+## Mapa público
 
-El mapa público está diseñado para informar sin transformarse en una base histórica infinita.
+El mapa ciudadano no funciona como historial infinito.
 
 ### Ventana pública
 
-Solo se muestran incidentes recientes de aproximadamente **24 horas de actividad**. El historial completo queda reservado para usuarios autenticados.
+Se muestran principalmente incidentes con actividad dentro de las **últimas 24 horas**. El historial completo queda reservado a cuentas autorizadas.
 
-### Estados y colores
+### Colores por estado
 
-| Estado operativo | Color |
+| Estado | Color |
 |---|---|
 | Recibida / en revisión | Amarillo |
 | Verificada | Naranjo |
@@ -163,11 +181,11 @@ Solo se muestran incidentes recientes de aproximadamente **24 horas de actividad
 | Resuelta | Verde |
 | Cerrada / descartada | Negro |
 
-La **prioridad 1–5** se conserva independientemente del color del estado.
+La prioridad 1–5 se mantiene como dato separado del estado.
 
-### Escalabilidad visual
+### Alta carga
 
-Cuando existen muchos incidentes, las listas se organizan con la lógica:
+Las listas pueden organizarse así:
 
 ```text
 HORA
@@ -176,15 +194,11 @@ HORA
         └── MÁS RECIENTE
 ```
 
-Los bloques son plegables para evitar listas extensas y difíciles de operar.
-
-### Compatibilidad
-
-El mapa principal usa Leaflet y dispone de diseño responsive para PC, notebook, tablet y móvil. El panel de emergencias se transforma en drawer inferior en teléfonos y puede contraerse para dejar visible la cartografía.
+Los bloques son plegables para evitar listas interminables.
 
 ---
 
-## 7. Centro de operaciones
+## Centro de operaciones
 
 Ruta principal:
 
@@ -192,9 +206,9 @@ Ruta principal:
 /operaciones
 ```
 
-Solo está disponible para usuarios autenticados con perfil activo.
+El acceso requiere un perfil activo.
 
-Roles soportados:
+Roles:
 
 ```text
 admin
@@ -202,40 +216,39 @@ operator
 authority
 ```
 
-No existe creación pública de cuentas desde la aplicación. Las identidades se administran mediante Supabase Auth y las solicitudes institucionales se revisan antes de habilitar acceso.
+**Emergencias activas es la primera vista operativa y la primera opción del menú para todos los roles, incluido el administrador.**
+
+No existe registro público de cuentas. Las identidades se administran con Supabase Auth y los permisos con la tabla `profiles` + RLS.
 
 ---
 
-## 8. Administrador
+## Administrador
 
-El administrador posee acceso completo al entorno privado conforme a RLS y a las rutas administrativas.
+El administrador dispone de acceso ampliado a:
 
-El correo institucional principal configurado para administración es:
+- emergencias activas;
+- Dashboard general;
+- todos los reportes ciudadanos;
+- evidencia privada;
+- Agente IA;
+- historial completo;
+- directorio territorial;
+- organizaciones;
+- canales de contacto;
+- solicitudes de acceso;
+- alertas por correo;
+- auditoría Resend;
+- actividad operativa y auditoría.
+
+El correo institucional principal utilizado en la administración es:
 
 ```text
 contacto@innova-space-edu.cl
 ```
 
-El proyecto incluye lógica para reconocer este correo como administrador activo cuando su identidad existe correctamente en Supabase Auth.
-
-### Módulos exclusivos o ampliados del administrador
-
-- Dashboard general.
-- Registro completo de reportes ciudadanos.
-- Historial completo.
-- Emergencias activas.
-- Evidencia privada.
-- Agente IA.
-- Directorio territorial.
-- Organizaciones.
-- Solicitudes de acceso.
-- Alertas por correo.
-- Auditoría de entregas Resend.
-- Gestión/consulta de perfiles autorizados.
-
 ---
 
-## 9. Dashboard administrador
+## Dashboard administrador
 
 Ruta:
 
@@ -243,95 +256,99 @@ Ruta:
 /operaciones/admin
 ```
 
-El Dashboard está pensado como vista ejecutiva y operativa.
+Incluye una vista ejecutiva con KPI y gráficos dinámicos.
 
-Incluye KPI independientes para:
+Indicadores principales:
 
 - emergencias registradas;
-- emergencias activas;
+- activas;
 - finalizadas;
 - prioridad alta/crítica;
+- cantidad de reportes;
 - evidencia;
-- casos IA sin decisión;
+- estado del Agente IA;
 - canalizaciones;
-- correos Resend;
+- correos enviados/fallidos;
 - usuarios activos;
 - solicitudes pendientes.
 
-### Gráficos
+### Visualización
 
-Incluye gráficos tipo **donut** generados con datos reales para resumir:
+El Dashboard incorpora gráficos **donut** y distribución por:
 
-- distribución por estado;
-- distribución por categoría;
-- estado de correos Resend.
+- estado;
+- categoría;
+- correo Resend;
+- actividad por hora durante las últimas 24 horas.
 
-También incorpora distribución de actividad de las últimas 24 horas por **hora + categoría**.
-
-La vista puede actualizarse manualmente y está preparada para refresco periódico del Dashboard.
+Está preparado para refresco periódico y actualización manual.
 
 ---
 
-## 10. Registro de reportes ciudadanos
+## Registro de reportes ciudadanos
 
-Ruta administrativa:
+Ruta:
 
 ```text
 /operaciones/admin/reportes
 ```
 
-Permite revisar reportes individuales aunque varios hayan terminado consolidados en un mismo incidente.
+Conserva los reportes individuales aunque varios terminen asociados al mismo incidente.
 
-El registro incluye, según disponibilidad:
+Puede mostrar:
 
-- fecha de captura;
-- fecha de recepción;
-- incidente `EMG` asociado;
-- tipo original informado por el ciudadano;
+- tipo original reportado;
 - descripción;
-- Región/comuna/localidad;
-- ubicación;
-- riesgos observados;
-- funcionamiento online/offline;
-- evidencia asociada;
-- prioridad/estado derivados del incidente.
+- fechas de captura/recepción;
+- localidad;
+- riesgos;
+- modo offline/online;
+- incidente consolidado;
+- evidencia relacionada;
+- estado y prioridad del incidente.
 
-La vista es paginada y utiliza agrupación por hora y categoría para evitar interfaces inmanejables cuando crece el volumen.
+La vista es paginada y organizada por hora/categoría.
 
 ---
 
-## 11. Emergencias activas e historial
+## Emergencias activas
 
-### Emergencias activas
+Los incidentes no finalizados se trabajan desde `/operaciones`.
 
-El Centro de operaciones permite trabajar sobre los incidentes que aún requieren seguimiento.
-
-Filtros disponibles o previstos en la interfaz operativa incluyen:
+Filtros operativos incluyen o pueden combinar:
 
 - categoría;
 - prioridad;
 - estado;
 - localidad;
 - última hora;
-- últimas 3 horas;
-- últimas 6 horas;
-- últimas 12 horas;
-- últimas 24 horas;
+- últimas 3/6/12/24 horas;
 - todas las activas.
 
-### Finalizar emergencia
+Dentro del caso se puede:
 
-Un usuario autorizado puede marcar una emergencia como finalizada/resuelta.
+- revisar el detalle privado;
+- cambiar categoría;
+- subir/bajar prioridad;
+- cambiar estado;
+- revisar reportes asociados;
+- abrir evidencia privada;
+- ejecutar/reintentar IA;
+- canalizar;
+- enviar correo;
+- finalizar.
 
-Al finalizar:
+---
 
-1. cambia a `resolved`;
+## Finalización e historial
+
+Al finalizar una emergencia:
+
+1. pasa a `resolved`;
 2. se guarda `resolved_at`;
-3. el cambio queda auditado;
-4. sale del listado operativo activo;
-5. permanece en el historial general.
-
-### Historial
+3. sale del listado de activas;
+4. queda auditada;
+5. permanece en el historial.
 
 Ruta:
 
@@ -339,11 +356,11 @@ Ruta:
 /operaciones/historial
 ```
 
-Permite buscar por código, comuna, localidad, categoría, estado y rango de fechas. Está paginado y ordenado desde lo más reciente hacia lo más antiguo.
+El historial permite filtrar por código, comuna, localidad, categoría, estado y fechas.
 
 ---
 
-## 12. Agente IA
+# Agente IA
 
 Ruta:
 
@@ -351,57 +368,144 @@ Ruta:
 /operaciones/agente
 ```
 
-La IA funciona como **agente operativo asistido**, no como autoridad de despacho.
+La IA funciona como **asistente operativo**, no como autoridad de despacho.
 
-### Funciones
+## Funciones
 
 - clasificación de categoría;
 - estimación de prioridad;
 - resumen estructurado;
 - detección de inconsistencias;
 - recomendación de organismos;
-- apoyo a deduplicación;
-- análisis de evidencia privada cuando un usuario autorizado lo solicita;
-- triage de casos simples;
-- clasificación de casos que requieren revisión humana;
-- creación de acciones propuestas;
-- seguimiento de acciones fallidas o pendientes.
+- apoyo al triage;
+- clasificación de casos para revisión humana;
+- análisis de imágenes cuando el proveedor disponible lo permite;
+- registro de ejecuciones y fallos;
+- creación de acciones sugeridas.
 
-### Bandeja del agente
+## Arquitectura multi-proveedor
 
-Separa casos como:
+El worker principal se ejecuta en Supabase:
 
 ```text
+supabase/functions/agent-worker
+```
+
+Orden de proveedores:
+
+```text
+1. Gemini
+      ↓ si falla / cuota / timeout / error
+2. Groq
+      ↓ si falla
+3. OpenRouter
+      ↓
+Revisión humana + error registrado
+```
+
+### Gemini
+
+Proveedor principal para análisis multimodal. Puede recibir las imágenes privadas seleccionadas por el backend.
+
+Modelo por defecto:
+
+```text
+gemini-3.6-flash
+```
+
+### Groq
+
+Primer respaldo para triage rápido basado en texto y metadatos.
+
+Modelo configurable; valor inicial:
+
+```text
+openai/gpt-oss-20b
+```
+
+### OpenRouter
+
+Segundo respaldo. Permite enrutar solicitudes a modelos compatibles mediante una API única.
+
+Modelo configurable; valor inicial:
+
+```text
+openai/gpt-oss-20b
+```
+
+### Evidencia y fallback
+
+Cuando Gemini no está disponible y el worker cae a un proveedor de respaldo de texto, el prompt indica explícitamente que **no puede afirmar nada sobre el contenido visual de las imágenes que no recibió**. Puede seguir clasificando usando descripción, categoría y riesgos marcados.
+
+### Registro del proveedor
+
+Cada ejecución completada guarda el proveedor/modelo utilizado, por ejemplo:
+
+```text
+gemini:gemini-3.6-flash
+groq:openai/gpt-oss-20b
+openrouter:openai/gpt-oss-20b
+```
+
+Si todos fallan, se registra una ejecución `failed` con el motivo para que la bandeja no quede silenciosamente en cero.
+
+## Bandeja del Agente
+
+Separa:
+
+```text
+Fallos del agente
 Revisión humana urgente
 Revisión humana
 Triage automático
-Acciones fallidas / pendientes
+Acciones pendientes
 ```
 
-Los casos prioritarios aparecen antes que los automáticos.
+Incluye botón para procesar emergencias pendientes y estado de proveedores.
 
-### Reglas de seguridad
+## Límites de la IA
 
-La IA **no**:
+La IA no debe:
 
-- certifica que un reporte sea verdadero;
-- sustituye la verificación humana;
-- genera una orden oficial de despacho;
-- llama automáticamente al 131/132/133;
-- debe enviar evidencia sensible a terceros sin una decisión explícita de privacidad y minimización de datos.
+- certificar que un reporte sea verdadero;
+- identificar personas a partir de evidencia;
+- inventar datos;
+- despachar oficialmente recursos;
+- llamar automáticamente al 131/132/133;
+- sustituir la revisión humana en casos críticos, ambiguos o de baja confianza.
 
-El modelo puede recomendar acciones; la aplicación decide qué acciones son legal y técnicamente ejecutables.
+La aplicación aplica reglas duras fuera del modelo.
 
-### Configuración
+---
+
+## Secrets del Agente IA
+
+Configurar en:
+
+```text
+Supabase > Edge Functions > Secrets
+```
+
+Se necesita **al menos un proveedor**:
 
 ```env
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.6-flash
+
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-20b
+
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openai/gpt-oss-20b
 ```
+
+Si se configuran los tres, el agente usa el orden Gemini → Groq → OpenRouter.
+
+Nunca usar `NEXT_PUBLIC_` para estas claves.
 
 ---
 
-## 13. Directorio territorial
+## Directorio territorial
 
 Ruta:
 
@@ -409,118 +513,85 @@ Ruta:
 /operaciones/directorio
 ```
 
-Disponible únicamente para usuarios con cuenta autorizada.
+Solo visible a usuarios autorizados.
 
-La estructura territorial es:
+Estructura:
 
 ```text
 Región
 └── Comuna
     └── Localidad
         └── Organización
-            └── Canales
+            └── Canal
 ```
 
-Tipos de organizaciones soportados incluyen:
+Canales soportados:
 
-- gestión de emergencias;
-- municipio;
-- Bomberos;
-- salud;
-- policías;
-- electricidad;
-- radios;
-- otros organismos pertinentes.
-
-Canales posibles:
-
-- correo;
+- email;
 - teléfono;
 - WhatsApp;
 - Facebook;
 - Instagram;
 - X;
 - web;
-- frecuencia radial;
+- radio;
 - Zello;
 - SMS;
-- canal manual.
+- manual.
 
-Cada canal puede registrar fuente, verificación, estado activo y autorización de automatización.
+Cada contacto puede conservar fuente, fecha de verificación, estado activo y autorización de automatización.
 
-### Localidades INE
-
-El módulo dispone de infraestructura para sincronizar localidades oficiales de la **Región de Antofagasta** desde fuentes territoriales oficiales, evitando mantener manualmente un catálogo propenso a errores.
-
-La arquitectura permite escalar posteriormente al resto de Chile.
+La base territorial incluye localidades de la Región de Antofagasta y soporte para sincronización desde fuentes oficiales.
 
 ---
 
-## 14. Canalización a autoridades, municipios y radios
+## Canalización territorial
 
-Al seleccionar una emergencia, el Centro de operaciones consulta la cobertura territorial correspondiente.
-
-Prioridad de búsqueda:
+Al abrir una emergencia se priorizan contactos de:
 
 ```text
-Localidad exacta
+localidad exacta
       ↓
-si no hay coincidencia
-      ↓
-Comuna como respaldo
+comuna como respaldo
 ```
 
-Por lo tanto, una emergencia en Antofagasta no debería mostrar indiscriminadamente organismos de Calama, Taltal o Tocopilla.
+No se debe mostrar indiscriminadamente el directorio completo de toda la región.
 
-Para cada organismo se muestran únicamente los canales registrados disponibles.
-
-### Acciones
-
-- **Correo:** envío real mediante Resend.
-- **Teléfono:** abre el marcador telefónico.
-- **WhatsApp:** abre el canal correspondiente.
-- **Facebook/Instagram/X/web/Zello:** abre el enlace registrado.
-- **Radio/SMS/manual:** registra el intento o la acción manual, sin simular entrega automática.
-
-Un contacto manual no convierte por sí mismo la emergencia en “notificada”.
+Para cada organización se ofrecen únicamente sus canales disponibles.
 
 ---
 
-## 15. Compositor y auditoría de correo
+## Correo a autoridades y radios
 
-Antes de enviar un correo a una autoridad u organización, el operador puede revisar y editar:
+El envío real por correo usa **Resend API HTTP**.
+
+Antes de enviar, el operador puede revisar/editar:
 
 - destinatario;
 - copia al administrador;
-- `Reply-To` del usuario que ejecuta la acción;
+- Reply-To;
 - asunto;
-- cuerpo completo del mensaje.
+- cuerpo completo.
 
-El texto automático incluye datos relevantes del incidente y una advertencia de que Innova Emergency no constituye confirmación del hecho ni reemplaza canales oficiales.
-
-Después del envío se conserva:
+Después queda archivado:
 
 - organización;
 - destinatario;
 - copia;
 - asunto;
-- cuerpo exacto;
-- fecha/hora;
+- cuerpo enviado;
 - estado;
-- error, si existe;
-- ID devuelto por Resend.
+- fecha;
+- error;
+- ID de Resend.
 
-Esto permite revisar exactamente qué fue enviado y no depender solo de una etiqueta “sent”.
+Los canales manuales no se marcan falsamente como enviados.
 
 ---
 
-## 16. Resend
+## Resend en Vercel
 
-El correo institucional se implementa mediante **Resend API HTTP**. No depende de `mailto:` ni de SMTP del navegador.
-
-### Variables en Vercel
-
-Configurar como secretos/variables del proyecto, nunca como `NEXT_PUBLIC_*`:
+Variables para envíos iniciados desde Next.js:
 
 ```env
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
@@ -529,32 +600,11 @@ EMAIL_SEND_TO=contacto@innova-space-edu.cl
 ADMIN_EMAIL=contacto@innova-space-edu.cl
 ```
 
-`EMAIL_FROM` debe utilizar un dominio/remitente autorizado por Resend.
-
-El usuario autenticado que ejecuta un envío puede quedar como `Reply-To`; el administrador recibe copia cuando corresponde.
-
-### Secrets de Supabase Edge Functions
-
-Las alertas automáticas se ejecutan en Supabase, por lo que la API key configurada en Vercel **no se comparte automáticamente** con las Edge Functions.
-
-Configurar también en:
-
-```text
-Supabase > Edge Functions > Secrets
-```
-
-```env
-RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
-EMAIL_FROM=Innova Emergency <contacto@innova-space-edu.cl>
-ADMIN_EMAIL=contacto@innova-space-edu.cl
-INNOVA_EMERGENCY_URL=https://emergencias-4yfs.vercel.app
-```
-
-Supabase expone los secrets a las Edge Functions mediante variables de entorno. No se guardan las claves privadas en GitHub.
+El dominio/remitente de `EMAIL_FROM` debe estar autorizado en Resend.
 
 ---
 
-## 17. Alertas automáticas de correo
+## Alertas automáticas de correo
 
 Edge Function:
 
@@ -562,9 +612,7 @@ Edge Function:
 emergency-email-broadcast
 ```
 
-Las cuentas activas pueden recibir alertas internas por eventos relevantes.
-
-Eventos implementados:
+Eventos internos relevantes:
 
 ```text
 staff_new_incident
@@ -573,64 +621,51 @@ staff_responding
 staff_resolved
 ```
 
-Es decir:
+Las alertas automáticas usan los correos de perfiles activos con notificaciones habilitadas y pueden usar BCC para no exponer direcciones entre usuarios.
 
-- nueva emergencia;
-- escalamiento a crítica;
-- inicio de atención;
-- finalización.
+Secrets en Supabase:
 
-No se envían correos masivos por cada modificación menor para evitar fatiga de alertas.
+```env
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxx
+EMAIL_FROM=Innova Emergency <contacto@innova-space-edu.cl>
+ADMIN_EMAIL=contacto@innova-space-edu.cl
+INNOVA_EMERGENCY_URL=https://emergencias-4yfs.vercel.app
+```
 
-Los destinatarios internos se pueden enviar usando BCC para evitar exponer correos entre usuarios.
-
-Los resultados se almacenan en un log de entregas con:
-
-- destinatario;
-- evento;
-- proveedor;
-- estado;
-- ID del proveedor;
-- error;
-- fecha.
-
-Un fallo queda registrado como histórico y no se transforma retroactivamente en éxito.
+Los resultados se almacenan en `email_delivery_log`.
 
 ---
 
-## 18. Edge Functions Supabase
+## Edge Functions
 
-El repositorio versiona actualmente:
+Versionadas en el repositorio:
 
 ```text
 supabase/functions/emergency-gateway
 supabase/functions/agent-gateway
+supabase/functions/agent-worker
 supabase/functions/emergency-email-broadcast
 ```
 
 ### `emergency-gateway`
 
-Responsable principalmente de:
+Recepción anónima, idempotencia, rate limiting, deduplicación, incidentes, reportes, mapa público sanitizado y evidencia.
 
-- recepción anónima;
-- idempotencia;
-- rate limiting;
-- creación/consolidación de incidentes;
-- acceso público sanitizado;
-- generación/confirmación de URLs de evidencia;
-- solicitudes de acceso.
+### `agent-worker`
+
+Motor actual del agente IA, procesamiento de pendientes y fallback multi-proveedor.
 
 ### `agent-gateway`
 
-Responsable del procesamiento asistido del agente IA y reglas de triage/automatización controlada.
+Infraestructura previa/auxiliar para reglas de agente, routing y acciones controladas.
 
 ### `emergency-email-broadcast`
 
-Responsable de alertas automáticas internas mediante Resend y registro de entregas.
+Alertas automáticas internas y registro Resend.
 
 ---
 
-## 19. Evidencia privada
+## Evidencia privada
 
 Bucket:
 
@@ -640,194 +675,111 @@ emergency-evidence
 
 Características:
 
-- bucket privado;
-- imágenes y videos no visibles en el mapa público;
-- subida directa mediante URLs firmadas;
-- acceso institucional autenticado;
-- URLs firmadas de corta duración para visualización;
-- auditoría de accesos/acciones donde corresponda;
-- videos excluidos del análisis IA automático pesado cuando no son necesarios.
+- privado;
+- carga mediante URLs firmadas;
+- acceso solo institucional;
+- URLs firmadas de corta duración;
+- fotos/videos fuera del mapa público;
+- imágenes limitadas para análisis IA;
+- videos no enviados automáticamente a proveedores externos.
 
 ---
 
-## 20. Base de datos y seguridad
+## Base de datos
 
-La base utiliza PostgreSQL + PostGIS.
+PostgreSQL + PostGIS.
 
-Áreas principales del esquema incluyen:
+Principales dominios:
 
-- perfiles/roles;
-- incidentes;
-- reportes ciudadanos;
-- evidencia;
-- organizaciones;
-- cobertura territorial;
-- canales de organizaciones;
-- notificaciones de incidentes;
-- solicitudes de acceso;
-- auditoría;
-- rate limiting;
-- ejecuciones del agente IA;
-- acciones propuestas/ejecutadas por IA;
-- políticas de automatización;
-- logs de correo y entregas automáticas.
-
-### RLS
-
-Las tablas expuestas utilizan políticas de seguridad por fila. El público solo recibe datos sanitizados definidos por el gateway/vistas permitidas.
-
-Nunca debe colocarse una `service_role` o `sb_secret_*` en variables públicas del frontend.
-
-### Datos públicos vs. privados
-
-**Público:**
-
-- código sanitizado;
-- categoría/título público;
-- estado;
-- prioridad visual cuando corresponda;
-- ubicación pública controlada;
-- información resumida;
-- situación de notificación sanitizada.
-
-**Privado/institucional:**
-
-- descripción completa;
-- reportes originales;
-- evidencia;
-- análisis IA;
-- auditoría;
-- directorio territorial;
-- información de contacto;
-- contenido de correos;
-- historial operativo completo.
+- `profiles`;
+- `incidents`;
+- `reports`;
+- `evidence`;
+- `organizations`;
+- `organization_channels`;
+- `organization_coverage`;
+- `territorial_localities`;
+- `incident_notifications`;
+- `access_requests`;
+- `audit_log`;
+- `rate_limit_events`;
+- `ai_agent_runs`;
+- `ai_agent_actions`;
+- `ai_agent_policies`;
+- `email_delivery_log`.
 
 ---
 
-## 21. Privacidad y cumplimiento
+## Seguridad
 
-El diseño aplica principios de **privacy by design** y minimización de datos.
+- RLS en tablas de aplicación expuestas.
+- Auth de Supabase para cuentas institucionales.
+- No existe signup público.
+- Storage privado.
+- secretos fuera del repositorio;
+- service role nunca en el navegador;
+- correo y acciones críticas auditadas;
+- evidencia separada del mapa público;
+- agente IA con revisión humana para casos de riesgo.
 
-La plataforma está pensada para seguir endureciendo sus controles de acuerdo con la normativa chilena de protección de datos, incluyendo la entrada en vigor de la Ley 21.719.
-
-Principios operativos:
-
-- no publicar evidencia privada;
-- limitar datos personales al mínimo necesario;
-- no enviar evidencia sensible a IA externa sin justificación;
-- mantener trazabilidad de acciones administrativas;
-- separar información pública e institucional;
-- utilizar conexiones seguras y secretos fuera del código fuente;
-- permitir políticas diferenciadas de acceso y automatización.
-
----
-
-## 22. Acceso institucional
-
-Rutas públicas relacionadas:
+Nunca exponer:
 
 ```text
-/login
-/acceso
+SUPABASE_SERVICE_ROLE_KEY
+sb_secret_...
+RESEND_API_KEY
+GEMINI_API_KEY
+GROQ_API_KEY
+OPENROUTER_API_KEY
 ```
-
-El login es una puerta única para:
-
-- administrador;
-- operador;
-- autoridad.
-
-Después de autenticar, el backend consulta el perfil activo y aplica el rol correspondiente.
-
-El formulario institucional incorpora enlaces a:
-
-- Privacidad;
-- Seguridad;
-- Gobernanza de IA;
-- Términos y condiciones.
-
-No se debe asumir que un usuario posee permisos solo por estar autenticado; el perfil debe estar activo y tener un rol permitido.
 
 ---
 
-## 23. Diseño responsive
+## Privacidad
 
-La interfaz está preparada para:
+Principios:
+
+- privacy by design;
+- minimización de datos;
+- separación público/privado;
+- evidencia no pública;
+- trazabilidad administrativa;
+- URLs firmadas para evidencia;
+- evaluación previa antes de enviar datos sensibles a servicios externos;
+- adaptación progresiva a la normativa chilena de protección de datos.
+
+---
+
+## PWA y offline
+
+Incluye:
+
+- manifest;
+- Service Worker;
+- IndexedDB;
+- cola de sincronización;
+- indicador de conexión;
+- reintentos;
+- conservación de evidencia hasta confirmación.
+
+---
+
+## Responsive
+
+Diseñado para:
 
 - PC;
 - notebook;
 - tablet;
 - Android;
 - iOS;
-- navegadores modernos de escritorio y móvil.
+- navegadores modernos.
 
-Características responsive:
-
-- menú móvil `☰`;
-- acceso visible al Centro de operaciones;
-- botón Reportar siempre accesible;
-- drawers inferiores en mapas móviles;
-- panel administrativo contraíble;
-- formularios de dos columnas que pasan a una columna;
-- controles táctiles ampliados;
-- mapas calculados con `100dvh` para reducir problemas con barras móviles;
-- Dashboard responsive;
-- compositor de correo responsive.
+Incluye menú móvil, drawers contraíbles, mapas adaptativos, formularios fluidos y controles táctiles.
 
 ---
 
-## 24. PWA y funcionamiento offline
-
-El proyecto incorpora:
-
-- manifest;
-- Service Worker;
-- IndexedDB;
-- indicador de conexión;
-- cola de sincronización;
-- reintentos;
-- conservación de blobs de evidencia hasta confirmación.
-
-El objetivo es que el reporte pueda capturarse incluso con conectividad débil y enviarse cuando vuelva la señal.
-
----
-
-## 25. Deduplicación
-
-El sistema puede consolidar reportes cuando existen coincidencias suficientes de:
-
-- categoría;
-- distancia geográfica;
-- intervalo temporal;
-- estado compatible.
-
-La deduplicación no debe aplicarse ciegamente a situaciones móviles o eventos que puedan desplazarse.
-
----
-
-## 26. Estados operativos de notificación
-
-El modelo de seguimiento contempla una progresión como:
-
-```text
-NO ENVIADA
-EN COLA
-ENVIADA
-ENTREGADA
-RECEPCIÓN CONFIRMADA
-ATENDIENDO
-FINALIZADA
-```
-
-La plataforma distingue entre “abrir un canal/manual” y una entrega técnica confirmada. No se debe marcar falsamente una notificación como enviada si no existe confirmación del proveedor o del usuario responsable.
-
----
-
-## 27. Variables de entorno de Next.js / Vercel
-
-Ver `.env.example` para la referencia mantenida junto al código.
-
-Configuración base:
+## Variables base de Next.js / Vercel
 
 ```env
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
@@ -835,105 +787,65 @@ NEXT_PUBLIC_SUPABASE_URL=https://gwldnuekmwpwfnustqlu.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 NEXT_PUBLIC_MAP_STYLE_URL=https://tiles.openfreemap.org/styles/liberty
 
-GEMINI_API_KEY=
-GEMINI_MODEL=gemini-3.6-flash
-
 RESEND_API_KEY=re_xxx
 EMAIL_FROM=Innova Emergency <contacto@innova-space-edu.cl>
 EMAIL_SEND_TO=contacto@innova-space-edu.cl
 ADMIN_EMAIL=contacto@innova-space-edu.cl
 ```
 
-`NEXT_PUBLIC_MAP_STYLE_URL` es opcional; existe una estrategia de fallback cartográfico.
+Los secrets IA del worker se configuran principalmente en Supabase Edge Function Secrets.
 
-### Nunca colocar en el navegador
-
-```text
-SUPABASE_SERVICE_ROLE_KEY
-sb_secret_...
-RESEND_API_KEY
-GEMINI_API_KEY
-```
-
-No usar el prefijo `NEXT_PUBLIC_` para secretos.
+Ver `.env.example`.
 
 ---
 
-## 28. Desarrollo local
-
-Requisitos:
-
-```text
-Node.js 22.x
-npm
-```
-
-Instalación:
+## Desarrollo local
 
 ```bash
 npm install
-```
-
-Crear variables locales a partir de:
-
-```text
-.env.example
-```
-
-Ejecutar:
-
-```bash
 npm run dev
 ```
 
-Abrir:
-
-```text
-http://localhost:3000
-```
-
-Build de producción:
+Producción local:
 
 ```bash
 npm run build
 npm run start
 ```
 
+Node requerido:
+
+```text
+22.x
+```
+
 ---
 
-## 29. Vercel
+## Vercel
 
-Configuración recomendada:
+Configuración:
 
 ```text
 Framework Preset: Next.js
 Root Directory: ./
-Build Command: automático / npm run build
+Build Command: npm run build / automático
 Output Directory: sin override
 Install Command: automático
 Node.js: 22.x
 Production Branch: main
 ```
 
-No configurar `app/` como Root Directory: `package.json` se encuentra en la raíz del repositorio.
-
-### Health check
-
-Existe una ruta de salud para comprobar servicios fundamentales:
+Health check:
 
 ```text
 /api/health
 ```
 
-Puede indicar, sin revelar secretos, si la aplicación, gateway, IA y correo están configurados.
-
-### Rate limit de builds
-
-Un rechazo de Vercel por `build-rate-limit` es una limitación del plan/cuenta y no implica necesariamente un fallo de Next.js. GitHub Actions se utiliza como validación independiente del código.
+El health check puede informar, sin revelar claves, el estado del gateway, Resend y los proveedores IA disponibles en `agent-worker`.
 
 ---
 
-## 30. GitHub Actions
+## GitHub Actions
 
 Workflow:
 
@@ -941,77 +853,41 @@ Workflow:
 .github/workflows/ci.yml
 ```
 
-Valida al menos:
+Valida instalación y build/TypeScript antes de considerar un cambio estable.
 
-1. checkout;
-2. Node.js 22;
-3. instalación de dependencias;
-4. build de Next.js / TypeScript;
-5. generación/archivo del lockfile cuando corresponda.
-
-El objetivo es no depender exclusivamente del resultado del deployment de Vercel para detectar errores de código.
+Un `build-rate-limit` de Vercel es una limitación de despliegue y no equivale necesariamente a un error del código.
 
 ---
 
-## 31. Supabase reproducible
+## Supabase reproducible
 
-El repositorio mantiene:
+El repositorio conserva:
 
 ```text
 supabase/migrations/
 supabase/functions/
 ```
 
-Esto permite que GitHub sea la fuente reproducible de:
-
-- estructura de base de datos;
-- RLS;
-- funciones SQL;
-- índices;
-- tablas territoriales;
-- módulos IA;
-- correo;
-- Edge Functions.
-
-Los secretos de producción **no** se versionan.
+Los secretos de producción no se versionan.
 
 ---
 
-## 32. Recomendaciones operativas antes de producción masiva
-
-Antes de habilitar derivaciones automáticas a gran escala:
-
-1. verificar todos los dominios/remitentes de Resend;
-2. probar correo con una cuenta/control interno;
-3. verificar contactos de organismos y radios;
-4. habilitar automatización canal por canal;
-5. revisar privacidad de evidencia y GPS exacto;
-6. probar escenarios offline y reintentos;
-7. probar carga con muchos reportes concurrentes;
-8. validar recuperación ante fallos de proveedor;
-9. revisar periódicamente Supabase Security/Performance Advisors;
-10. mantener revisión humana obligatoria para casos ambiguos, críticos o de baja confianza IA.
-
----
-
-## 33. Principio de seguridad operacional
-
-La plataforma está construida para **acelerar la canalización**, no para sustituir a las instituciones responsables.
+## Principio operacional
 
 ```text
-IA = analiza, prioriza, organiza y recomienda
-Aplicación = aplica reglas y registra acciones
-Usuario autorizado = decide cuando el caso requiere juicio humano
-Autoridad oficial = confirma/atiende/despacha por sus mecanismos oficiales
+IA = analiza, prioriza, clasifica y recomienda
+Aplicación = aplica reglas, permisos y auditoría
+Usuario autorizado = decide casos complejos
+Autoridad oficial = confirma y atiende por sus mecanismos oficiales
 ```
 
-Esta separación debe conservarse en futuras versiones.
+La plataforma debe acelerar la canalización sin sustituir a las instituciones responsables.
 
 ---
 
-## 34. Empresa
+## Empresa
 
 **Innova Space Education SpA**  
-Sitio institucional: https://innova-space-edu.cl
+https://innova-space-edu.cl
 
 © 2026 Innova Space Education SpA
