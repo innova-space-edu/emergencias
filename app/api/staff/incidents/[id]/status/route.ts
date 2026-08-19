@@ -14,13 +14,15 @@ export async function POST(req:NextRequest,{params}:{params:Promise<{id:string}>
     const body=await req.json();
     const status=String(body.status||'');
     if(!ALLOWED.has(status))return NextResponse.json({error:'Estado inválido'},{status:400});
+    if(status==='discarded'&&staff.profile.role!=='admin')return NextResponse.json({error:'Solo el administrador puede eliminar puntos del mapa'},{status:403});
     const s=await getServerSupabase();
     const {data:before}=await s.from('incidents').select('id,public_code,status,resolved_at').eq('id',id).single();
     if(!before)return NextResponse.json({error:'Emergencia no encontrada'},{status:404});
     const patch:any={status,resolved_at:status==='resolved'?new Date().toISOString():null};
     const {data,error}=await s.from('incidents').update(patch).eq('id',id).select('id,public_code,status,resolved_at').single();
     if(error)throw error;
-    try{await s.from('audit_log').insert({actor_user_id:staff.user.id,actor_role:staff.profile.role,action:status==='resolved'?'incident_resolved':'incident_status_changed',entity_type:'incident',entity_id:id,metadata:{from:before.status,to:status,public_code:before.public_code}})}catch{}
+    const auditAction=status==='resolved'?'incident_resolved':status==='discarded'?'incident_removed_from_map':'incident_status_changed';
+    try{await s.from('audit_log').insert({actor_user_id:staff.user.id,actor_role:staff.profile.role,action:auditAction,entity_type:'incident',entity_id:id,metadata:{from:before.status,to:status,public_code:before.public_code,preserved_for_audit:status==='discarded'}})}catch{}
     if(before.status!==status&&['critical','responding','resolved'].includes(status)){
       const {data:{session}}=await s.auth.getSession();
       if(session?.access_token)after(()=>triggerStaffEventBroadcast(id,status as 'critical'|'responding'|'resolved',session.access_token));
