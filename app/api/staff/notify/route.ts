@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiStaff } from '@/lib/auth';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { sendInstitutionalMail } from '@/lib/email';
+import { CANONICAL_EMERGENCY_URL } from '@/lib/operational-routing';
 export const runtime='nodejs';
-const ALLOWED_CHANNELS=new Set(['email','sms','whatsapp','web','radio','manual','phone','facebook','instagram','x','zello']);
-const DISCLAIMER='Esta comunicación canaliza información ciudadana y no confirma la veracidad del hecho ni constituye una orden de despacho. Innova Emergency complementa los canales oficiales y no reemplaza 131 SAMU, 132 Bomberos, 133 Carabineros ni SAE/SENAPRED.';
+const ALLOWED_CHANNELS=new Set(['email','sms','whatsapp','telegram','web','radio','manual','phone','facebook','instagram','x','zello']);
+const DISCLAIMER='Esta comunicación canaliza información ciudadana y no confirma la veracidad del hecho ni constituye una orden de despacho. Innova Emergency complementa los canales oficiales y no reemplaza los números y centrales operativas que correspondan, entre ellos 130 CONAF, 131 SAMU, 132 Bomberos, 133 Carabineros, 134 PDI y 137 emergencias marítimas.';
 
 function norm(v:string){return v.trim().toLowerCase()}
 
@@ -34,10 +35,10 @@ export async function POST(req:NextRequest){
     const admin=process.env.ADMIN_EMAIL||process.env.EMAIL_SEND_TO||'contacto@innova-space-edu.cl';
     const cc=channel==='email'&&destination.toLowerCase()!==admin.toLowerCase()?[admin]:[];
     const defaultSubject=`Alerta informativa ${incident.public_code} — Innova Emergency`;
-    const defaultText=`Innova Emergency canaliza un reporte ciudadano a ${organizationName}.\n\nCódigo: ${incident.public_code}\nTipo: ${incident.title||incident.category}\nPrioridad: ${incident.severity}/5\nEstado: ${incident.status}\nComuna: ${incident.commune||'No indicada'}\nLocalidad: ${incident.locality||'No indicada'}\nReferencia: ${incident.address_approx||'Ubicación registrada'}\nGPS: ${incident.latitude}, ${incident.longitude}\nResumen: ${incident.public_summary||'En revisión'}\n\nGestionado por: ${staff.user.email||staff.profile.email||'usuario autorizado'}\n\n${DISCLAIMER}`;
+    const defaultText=`Innova Emergency canaliza un reporte ciudadano a ${organizationName}.\n\nCódigo: ${incident.public_code}\nTipo: ${incident.title||incident.category}\nPrioridad: ${incident.severity}/5\nEstado: ${incident.status}\nComuna: ${incident.commune||'No indicada'}\nLocalidad: ${incident.locality||'No indicada'}\nReferencia: ${incident.address_approx||'Ubicación registrada'}\nGPS: ${incident.latitude}, ${incident.longitude}\nResumen: ${incident.public_summary||'En revisión'}\n\nSeguimiento: ${CANONICAL_EMERGENCY_URL}\nGestionado por: ${staff.user.email||staff.profile.email||'usuario autorizado'}\n\n${DISCLAIMER}`;
     const subject=String(body.subject||defaultSubject).trim().slice(0,180)||defaultSubject;
     let messageText=String(body.messageText||defaultText).trim().slice(0,8000)||defaultText;
-    if(!messageText.includes('no reemplaza 131'))messageText=`${messageText}\n\n${DISCLAIMER}`;
+    if(!messageText.toLowerCase().includes('no constituye una orden oficial de despacho')&&!messageText.toLowerCase().includes('no constituye una orden de despacho'))messageText=`${messageText}\n\n${DISCLAIMER}`;
     let status:'queued'|'sent'|'failed'='queued',failureReason:string|null=null,providerMessageId:string|null=null;
     if(channel==='email'&&destination.includes('@')){
       try{
@@ -48,7 +49,7 @@ export async function POST(req:NextRequest){
     const {data,error}=await s.from('incident_notifications').insert({incident_id:incidentId,organization_id:organizationId,organization_name:organizationName,channel,destination:destination||null,status,provider_message_id:providerMessageId,sent_at:status==='sent'?new Date().toISOString():null,failure_reason:failureReason,created_by:staff.user.id,subject:channel==='email'?subject:null,message_text:channel==='email'?messageText:null,cc_recipients:cc}).select('*').single();if(error)throw error;
     const countsAsNotified=status==='sent';
     if(countsAsNotified&&!['responding','resolved','discarded'].includes(incident.status))await s.from('incidents').update({status:'notified'}).eq('id',incidentId);
-    try{await s.from('audit_log').insert({actor_user_id:staff.user.id,actor_role:staff.profile.role,action:'notification_created',entity_type:'incident',entity_id:incidentId,metadata:{notification_id:data.id,organization:organizationName,channel,status,provider:'resend',provider_message_id:providerMessageId,subject:channel==='email'?subject:null,cc,incident_status_after:countsAsNotified?'notified':incident.status}})}catch{}
+    try{await s.from('audit_log').insert({actor_user_id:staff.user.id,actor_role:staff.profile.role,action:'notification_created',entity_type:'incident',entity_id:incidentId,metadata:{notification_id:data.id,organization:organizationName,channel,status,provider:channel==='email'?'resend':'manual',provider_message_id:providerMessageId,subject:channel==='email'?subject:null,cc,incident_status_after:countsAsNotified?'notified':incident.status}})}catch{}
     return NextResponse.json({ok:true,notification:data,incidentStatus:countsAsNotified&&!['responding','resolved','discarded'].includes(incident.status)?'notified':incident.status,requiresManualAction:status==='queued'});
   }catch(error){console.error(error);return NextResponse.json({error:'No fue posible registrar la notificación'},{status:500})}
 }
